@@ -4,7 +4,10 @@ import { HashRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './lib/auth'
 import { ToastProvider } from './components/ui'
+import { terimaTautan } from './lib/cloud'
 import './styles.css'
+
+terimaTautan()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

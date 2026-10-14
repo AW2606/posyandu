@@ -1,0 +1,18 @@
+# Salin berkas ini ke .github/workflows/keepalive.yml di repositori GitHub.
+# Isi Secret repositori: SUPABASE_URL (mis. https://abcd.supabase.co) dan SUPABASE_ANON_KEY.
+# Tujuan: proyek Supabase gratis tidak dijeda karena sepi aktivitas.
+name: supabase-keepalive
+on:
+  schedule:
+    - cron: '0 3 * * 1,4' # Senin dan Kamis, 03:00 UTC
+  workflow_dispatch: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Panggil fungsi ping
+        run: |
+          curl --fail --silent --show-error -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/ping" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" -d '{}'

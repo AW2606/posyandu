@@ -1,11 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Field, Ikon } from '../components/ui'
-import { FormServer } from '../components/FormServer'
 import { useAuth } from '../lib/auth'
 
 export default function Login() {
   const { login, cloud } = useAuth()
-  const [server, setServer] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [galat, setGalat] = useState<string | null>(null)
@@ -39,13 +37,10 @@ export default function Login() {
           <p className="petunjuk" style={{ marginTop: 14 }}>Masuk dengan akun yang dibuat admin Posyandu.</p>
         ) : (
           <p className="petunjuk" style={{ marginTop: 14 }}>
-            Pertama kali memakai? Masuk dengan <b>admin</b> / <b>admin123</b>, lalu segera ganti kata sandi di menu Lainnya.
+            Perangkat ini belum terhubung ke server bersama. Jika admin mengirim tautan, buka tautan itu lebih dulu.
+            Untuk memakai sendiri, masuk dengan <b>admin</b> / <b>admin123</b>, lalu segera ganti kata sandi di menu Lainnya.
           </p>
         )}
-        <button type="button" className="btn kecil penuh" style={{ marginTop: 6 }} onClick={() => setServer(!server)}>
-          {server ? 'Tutup pengaturan server' : cloud ? 'Pengaturan server' : 'Hubungkan ke server bersama'}
-        </button>
-        {server && <div style={{ marginTop: 14 }}><FormServer /></div>}
       </form>
     </div>
   )

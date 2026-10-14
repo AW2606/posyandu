@@ -87,7 +87,8 @@ export function mulaiSinkron(): () => void {
   if (!s) return () => {}
   const jalan = () => void s.jalankan()
   jalan()
-  const timer = window.setInterval(jalan, 20000)
+  // hemat kuota: hanya saat aplikasi terlihat
+  const timer = window.setInterval(() => document.visibilityState === 'visible' && jalan(), 30000)
   const saatKembali = () => document.visibilityState === 'visible' && jalan()
   window.addEventListener('online', jalan)
   document.addEventListener('visibilitychange', saatKembali)
@@ -144,4 +145,55 @@ export function hapusProfilCache() {
 export function emailDariUsername(u: string): string {
   const t = u.trim()
   return t.includes('@') ? t : `${t.toLowerCase()}@posyandu.local`
+}
+
+/** Nama pengguna boleh huruf kecil, angka, titik, garis bawah, dan strip. */
+export const POLA_USERNAME = /^[a-z0-9._-]{3,30}$/
+
+/**
+ * Buat akun kader. Memakai klien sementara agar sesi admin tidak tergeser.
+ * Akun baru nonaktif dari server; admin langsung mengaktifkannya di sini.
+ */
+export async function buatAkunKader(nama: string, username: string, password: string, role: 'admin' | 'kader'): Promise<string | null> {
+  const k = getKonfig()
+  if (!k) return 'Server belum dikonfigurasi'
+  const u = username.trim().toLowerCase()
+  if (!POLA_USERNAME.test(u)) return 'Nama pengguna 3–30 karakter: huruf kecil, angka, titik, garis bawah, atau strip.'
+  if (password.length < 6) return 'Kata sandi minimal 6 karakter.'
+  const sementara = createClient(k.url, k.key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'posyandu.sementara' },
+  })
+  const { data, error } = await sementara.auth.signUp({ email: emailDariUsername(u), password, options: { data: { nama: nama.trim() } } })
+  if (error) return /already|registered/i.test(error.message) ? 'Nama pengguna sudah dipakai.' : error.message
+  const uid = data.user?.id
+  if (!uid || data.user?.identities?.length === 0) return 'Nama pengguna sudah dipakai.'
+  const { error: e2 } = await getKlien().from('profiles').update({ aktif: true, role, nama: nama.trim() }).eq('id', uid)
+  if (e2) return `Akun dibuat tetapi belum bisa diaktifkan: ${e2.message}`
+  if (!data.session) return 'Akun dibuat, tetapi server meminta konfirmasi email. Matikan "Confirm email" di Supabase lalu hapus akun itu dan buat ulang.'
+  return null
+}
+
+/** Tautan sekali ketuk untuk menghubungkan HP kader. Hanya berisi alamat dan kunci publik. */
+export function buatTautan(): string | null {
+  const k = getKonfig()
+  if (!k) return null
+  const q = new URLSearchParams({ url: k.url, key: k.key })
+  return `${location.origin}${location.pathname}#/sambung?${q}`
+}
+
+/** Dipanggil sebelum aplikasi tampil: terima konfigurasi dari tautan, dengan konfirmasi. */
+export function terimaTautan(): void {
+  const m = /^#\/sambung\?(.*)$/.exec(location.hash)
+  if (!m) return
+  const q = new URLSearchParams(m[1])
+  const url = (q.get('url') ?? '').replace(/\/$/, '')
+  const key = q.get('key') ?? ''
+  location.hash = '#/'
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url) || key.length < 20) return
+  if (getKonfig()?.url === url) return
+  // Tautan palsu bisa mengarahkan login ke server orang lain, jadi tampilkan tujuannya.
+  const host = new URL(url).host
+  if (window.confirm(`Hubungkan aplikasi ke server ${host}?\n\nHanya lanjutkan jika tautan ini dari admin Posyandu Anda.`)) {
+    simpanKonfig({ url, key })
+  }
 }

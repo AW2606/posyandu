@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Chip, Field, Konfirmasi, Sheet, useToast } from '../components/ui'
 import { FormServer } from '../components/FormServer'
 import { buatUser, gantiPassword, gantiPasswordCloud, useAuth } from '../lib/auth'
-import { getKlien, getSinkron, useStatusSinkron, type Profil } from '../lib/cloud'
+import { buatAkunKader, buatTautan, getKlien, getSinkron, useStatusSinkron, type Profil } from '../lib/cloud'
 import { db, eksporSemua, impor, inisialisasi, simpanPengaturan, type Pengaturan as TPengaturan, type Role } from '../lib/db'
 import { unduhTeks } from '../lib/csv'
 import { usePengaturan, useKategori } from '../lib/hooks'
@@ -366,6 +366,15 @@ function Server() {
             <button className="btn" onClick={() => setKonf(true)}>Unggah semua data perangkat ini</button>
           </div>
           <p className="petunjuk">Gunakan "Unggah semua" hanya di <b>satu</b> perangkat yang sudah berisi data lama, sekali saja, saat pertama menghubungkan. Perangkat lain sebaiknya mulai kosong dan mengambil data dari server.</p>
+          <div className="baris" style={{ marginTop: 10 }}>
+            <button className="btn" onClick={async () => {
+              const t = buatTautan()
+              if (!t) return
+              try { await navigator.clipboard.writeText(t); toast('Tautan disalin. Kirim ke kader lewat WhatsApp.') }
+              catch { window.prompt('Salin tautan ini lalu kirim ke kader:', t) }
+            }}>Salin tautan untuk HP kader</button>
+          </div>
+          <p className="petunjuk">Kader cukup membuka tautan itu di HP-nya, menyetujui, lalu masuk dengan akunnya. Tidak perlu mengetik alamat server.</p>
           <details style={{ marginTop: 10 }}>
             <summary>Ubah atau putuskan server</summary>
             <div style={{ marginTop: 10 }}><FormServer /></div>
@@ -385,6 +394,22 @@ function ProfilCloud() {
   const toast = useToast()
   const [daftar, setDaftar] = useState<Profil[] | null>(null)
   const [galat, setGalat] = useState<string | null>(null)
+  const [baru, setBaru] = useState(false)
+  const [f, setF] = useState({ nama: '', username: '', password: '', role: 'kader' as 'admin' | 'kader' })
+  const [galatForm, setGalatForm] = useState<string | null>(null)
+  const [proses, setProses] = useState(false)
+  async function buat() {
+    if (!f.nama.trim()) return setGalatForm('Nama wajib diisi.')
+    setProses(true)
+    const g = await buatAkunKader(f.nama, f.username, f.password, f.role)
+    setProses(false)
+    if (g) return setGalatForm(g)
+    setBaru(false)
+    setGalatForm(null)
+    setF({ nama: '', username: '', password: '', role: 'kader' })
+    toast('Akun dibuat dan diaktifkan')
+    await muat()
+  }
   const muat = async () => {
     const { data, error } = await getKlien().from('profiles').select('*').order('username')
     if (error) setGalat(error.message)
@@ -399,8 +424,8 @@ function ProfilCloud() {
   return (
     <div className="kartu">
       <h3>Akun kader</h3>
-      <p className="petunjuk">Akun baru dibuat di Supabase (Authentication, Add user) dengan email <b>namapengguna@posyandu.local</b>. Orang pertama yang terdaftar otomatis menjadi Admin, berikutnya Kader. Di sini Anda mengatur peran dan status aktif.</p>
       {galat && <div className="banner bahaya">{galat}</div>}
+      <button className="btn utama" style={{ marginBottom: 12 }} onClick={() => setBaru(true)}>Buat akun kader</button>
       <div className="daftar">
         {(daftar ?? []).map((p) => (
           <div key={p.id} className="item" style={{ cursor: 'default', flexWrap: 'wrap' }}>
@@ -417,6 +442,20 @@ function ProfilCloud() {
           </div>
         ))}
       </div>
+      {baru && (
+        <Sheet judul="Akun baru" onTutup={() => setBaru(false)}>
+          <Field label="Nama lengkap"><input className="input" value={f.nama} onChange={(e) => setF({ ...f, nama: e.target.value })} /></Field>
+          <Field label="Nama pengguna" petunjuk="Dipakai untuk masuk. Huruf kecil, angka, titik, garis bawah, strip."><input className="input" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value.toLowerCase() })} /></Field>
+          <Field label="Kata sandi awal" petunjuk="Minimal 6 karakter. Kader bisa menggantinya sendiri di menu Lainnya."><input className="input" type="text" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>
+          <Field label="Peran">
+            <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as 'admin' | 'kader' })}>
+              <option value="kader">Kader</option><option value="admin">Admin</option>
+            </select>
+          </Field>
+          {galatForm && <div className="banner bahaya">{galatForm}</div>}
+          <div className="aksi-bawah"><button className="btn" onClick={() => setBaru(false)}>Batal</button><button className="btn utama" onClick={buat} disabled={proses}>{proses ? 'Membuat…' : 'Buat akun'}</button></div>
+        </Sheet>
+      )}
     </div>
   )
 }

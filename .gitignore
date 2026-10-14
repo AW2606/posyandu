@@ -1,2 +1,29 @@
+# Dependensi dan hasil build
 node_modules
 dist
+*.tsbuildinfo
+coverage
+
+# Rahasia dan konfigurasi lokal (jangan commit; contoh ada di .env.example)
+.env
+.env.*
+!.env.example
+
+# Data warga asli: NIK dan nama tidak boleh masuk repositori
+*.csv
+*.pdf
+*.xlsx
+*.xls
+cadangan-posyandu-*.json
+data-warga*/
+data-asli*/
+
+# Berkas sementara dan bawaan editor/OS
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea
+.claude/

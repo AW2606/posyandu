@@ -11,16 +11,21 @@ create table if not exists public.profiles (
   aktif     boolean not null default true
 );
 
--- Setiap akun baru otomatis punya profil. Akun PERTAMA menjadi admin, berikutnya kader.
+-- Setiap akun baru otomatis punya profil. Akun PERTAMA menjadi admin dan aktif.
+-- Akun berikutnya menjadi kader dan NONAKTIF sampai admin mengaktifkannya, sehingga orang luar
+-- yang mendaftar sendiri tidak bisa membaca atau menulis data apa pun.
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
+declare pertama boolean;
 begin
-  insert into public.profiles (id, username, nama, role)
+  select count(*) = 0 into pertama from public.profiles;
+  insert into public.profiles (id, username, nama, role, aktif)
   values (
     new.id,
     split_part(new.email, '@', 1),
-    coalesce(new.raw_user_meta_data ->> 'nama', split_part(new.email, '@', 1)),
-    case when (select count(*) from public.profiles) = 0 then 'admin' else 'kader' end
+    coalesce(nullif(new.raw_user_meta_data ->> 'nama', ''), split_part(new.email, '@', 1)),
+    case when pertama then 'admin' else 'kader' end,
+    pertama
   );
   return new;
 end $$;
@@ -93,6 +98,11 @@ drop policy if exists records_ubah on public.records;
 create policy records_ubah on public.records for update to authenticated
   using (public.is_active()) with check (public.is_active());
 -- Tidak ada kebijakan delete: penghapusan memakai penanda deleted=true.
+
+-- ============ Ping untuk menjaga proyek gratis tetap aktif ============
+create or replace function public.ping() returns integer
+language sql stable as $$ select 1 $$;
+grant execute on function public.ping() to anon, authenticated;
 
 -- ============ Hak akses tabel ============
 revoke all on public.records, public.profiles from anon;
