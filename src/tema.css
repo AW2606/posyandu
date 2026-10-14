@@ -126,3 +126,6 @@ body { background: linear-gradient(180deg, #d4eff3 0%, #e9f6f8 40%, #e2f3f6 100%
     background: #eef8fa; overflow-y: auto; overscroll-behavior: contain;
   }
 }
+
+.topbar .logo { overflow: hidden; }
+.topbar .logo img { width: 100%; height: 100%; object-fit: cover; display: block; }

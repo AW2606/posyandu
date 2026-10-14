@@ -21,7 +21,7 @@
   background: #ffffffb5; backdrop-filter: blur(10px); border-radius: 999px; border: 1px solid #fff;
 }
 .lp-brand { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: .04em; line-height: 1.1; color: var(--tx); }
-.lp-mark { width: 30px; height: 30px; border-radius: 9px; background: var(--t2); display: grid; place-items: center; }
+.lp-mark { width: 30px; height: 30px; border-radius: 9px; background: var(--t2); object-fit: cover; flex: none; }
 .lp-links { flex: 1; display: flex; justify-content: center; gap: 22px; font-size: 13px; font-weight: 600; }
 .lp-links a { color: var(--tx); }
 .lp-links a:hover { color: var(--t2); }

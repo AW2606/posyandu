@@ -6,6 +6,7 @@ import { ChipSinkron } from './components/FormServer'
 import { adaCloud, useStatusSinkron } from './lib/cloud'
 import { inisialisasi } from './lib/db'
 import { usePengaturan } from './lib/hooks'
+import logo from './logo.jpeg'
 import Dashboard from './pages/Dashboard'
 import KegiatanDetail from './pages/KegiatanDetail'
 import KegiatanList from './pages/KegiatanList'
@@ -53,7 +54,7 @@ export default function App() {
     <div className="app">
       <header className="topbar no-print">
         <div className="logo">
-          <Ikon nama="logo" ukuran={22} />
+          <img src={logo} alt="" />
         </div>
         <h1>
           {p.namaPosyandu.replace(/^POSYANDU /, 'Posyandu ').replace(/BANGAU/, 'Bangau')}

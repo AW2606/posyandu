@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import logo from '../logo.jpeg'
 import '../landing.css'
 
 export default function Login() {
@@ -25,9 +26,7 @@ export default function Login() {
       <Link className="lg-back" to="/">← Beranda</Link>
 
       <form className="lg-card" onSubmit={kirim}>
-        <span className="lp-mark lg-mark">
-          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-        </span>
+        <img className="lp-mark lg-mark" src={logo} alt="Posyandu Bangau" />
         <h1>Selamat Datang, Kader</h1>
         <p className="lg-sub">Portal Posyandu Bangau · Dusun 5, Way Huwi</p>
 

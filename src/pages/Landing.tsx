@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import logo from '../logo.jpeg'
 import '../landing.css'
 
 const I = ({ children }: { children: ReactNode }) => (
@@ -66,9 +67,7 @@ export default function Landing() {
         <section className="lp-hero" id="beranda">
           <nav className="lp-nav" aria-label="Navigasi">
             <a className="lp-brand" href="#beranda">
-              <span className="lp-mark">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-              </span>
+              <img className="lp-mark" src={logo} alt="" />
               <span>POSYANDU<br />BANGAU</span>
             </a>
             <div className="lp-links">
