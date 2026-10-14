@@ -1,12 +1,12 @@
 :root {
-  --h: #0f766e;
-  --h-gelap: #115e59;
-  --h-muda: #ccfbf1;
-  --bg: #f3f6f5;
+  --h: #277d8a;
+  --h-gelap: #1d6270;
+  --h-muda: #d8f1f4;
+  --bg: #e9f6f8;
   --kartu: #ffffff;
-  --teks: #1c2b29;
-  --redup: #5b6e6b;
-  --garis: #d9e2e0;
+  --teks: #0f2f35;
+  --redup: #4d6b72;
+  --garis: #cfe5e9;
   --merah: #b91c1c;
   --merah-muda: #fee2e2;
   --kuning: #a16207;
@@ -16,7 +16,7 @@
   --hijau-muda: #dcfce7;
   --hijau-tua: #166534;
   --abu-muda: #eceff0;
-  --r: 14px;
+  --r: 20px;
   --nav: 64px;
 }
 * { box-sizing: border-box; }
@@ -251,7 +251,7 @@ textarea.input { min-height: 84px; }
 
 /* ---------- tambahan ---------- */
 @media (max-width: 560px) { .grid2.tumpuk { grid-template-columns: 1fr; } }
-.main > form > .aksi-bawah { position: sticky; bottom: calc(var(--nav) + 8px); }
-@media (min-width: 900px) { .main > form > .aksi-bawah { bottom: 8px; } }
+.halaman > form > .aksi-bawah { position: sticky; bottom: calc(var(--nav) + 8px); }
+@media (min-width: 900px) { .halaman > form > .aksi-bawah { bottom: 8px; } }
 .skala { transform-origin: top left; }
 @media print { .skala { zoom: 1 !important; } }

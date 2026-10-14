@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 
 const PATH: Record<string, string> = {
   beranda: 'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10',
@@ -132,6 +132,46 @@ export function inisial(nama: string): string {
   return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase()
 }
 
+/** Angka yang menghitung naik dari 0 (halus, via requestAnimationFrame). */
+export function Angka({ nilai, durasi = 800 }: { nilai: number; durasi?: number }) {
+  const [tampil, setTampil] = useState(0)
+  const terakhir = useRef(0)
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      terakhir.current = nilai
+      setTampil(nilai)
+      return
+    }
+    const dari = terakhir.current
+    const mulai = performance.now()
+    let id = 0
+    const langkah = (now: number) => {
+      const p = Math.min(1, (now - mulai) / durasi)
+      terakhir.current = Math.round(dari + (nilai - dari) * (1 - Math.pow(1 - p, 3)))
+      setTampil(terakhir.current)
+      if (p < 1) id = requestAnimationFrame(langkah)
+    }
+    id = requestAnimationFrame(langkah)
+    return () => cancelAnimationFrame(id)
+  }, [nilai, durasi])
+  return <>{tampil}</>
+}
+
+export function Cincin({ persen }: { persen: number }) {
+  const [p, setP] = useState(0)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setP(Math.max(0, Math.min(100, persen))))
+    return () => cancelAnimationFrame(id)
+  }, [persen])
+  const K = 2 * Math.PI * 40
+  return (
+    <svg className="cincin" viewBox="0 0 100 100" aria-hidden>
+      <circle className="dasar" cx="50" cy="50" r="40" />
+      <circle className="isi" cx="50" cy="50" r="40" strokeDasharray={K} strokeDashoffset={K * (1 - p / 100)} />
+    </svg>
+  )
+}
+
 export function Bar({ label, nilai, maks }: { label: string; nilai: number; maks: number }) {
   return (
     <div className="bar-baris">
@@ -158,14 +198,14 @@ export function GrafikGaris({ titik, satuan }: { titik: Array<{ x: string; y: nu
   const py = (y: number) => H - pad - ((y - min) / rentang) * (H - pad * 2)
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Grafik ${satuan}`}>
-      <polyline fill="none" stroke="#0f766e" strokeWidth="2.5" points={titik.map((t, i) => `${px(i)},${py(t.y)}`).join(' ')} />
+      <polyline fill="none" stroke="#277d8a" strokeWidth="2.5" points={titik.map((t, i) => `${px(i)},${py(t.y)}`).join(' ')} />
       {titik.map((t, i) => (
         <g key={i}>
-          <circle cx={px(i)} cy={py(t.y)} r="4" fill="#0f766e" />
-          <text x={px(i)} y={py(t.y) - 8} fontSize="10" textAnchor="middle" fill="#1c2b29">
+          <circle cx={px(i)} cy={py(t.y)} r="4" fill="#277d8a" />
+          <text x={px(i)} y={py(t.y) - 8} fontSize="10" textAnchor="middle" fill="#0f2f35">
             {t.y}
           </text>
-          <text x={px(i)} y={H - 8} fontSize="9" textAnchor="middle" fill="#5b6e6b">
+          <text x={px(i)} y={H - 8} fontSize="9" textAnchor="middle" fill="#4d6b72">
             {t.x}
           </text>
         </g>

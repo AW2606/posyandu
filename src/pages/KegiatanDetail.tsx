@@ -140,7 +140,7 @@ export default function KegiatanDetail() {
       {tab === 'peserta' && (
         <>
           {hasilCari.length > 0 && (
-            <div className="kartu" style={{ background: '#f0fdfa' }}>
+            <div className="kartu" style={{ background: 'linear-gradient(180deg, #effafb, #dff3f6)' }}>
               <h3>Belum terdaftar hari ini</h3>
               <div className="daftar">
                 {hasilCari.map((x) => (
@@ -326,7 +326,7 @@ function FormObat({
       </Field>
       <div className="daftar" style={{ maxHeight: '36dvh', overflowY: 'auto' }}>
         {daftar.map((x) => (
-          <button key={x.w.id} className="item" onClick={() => toggle(x.w.id!)} style={dipilih.has(x.w.id!) ? { borderColor: 'var(--h)', background: '#f0fdfa' } : undefined}>
+          <button key={x.w.id} className="item" onClick={() => toggle(x.w.id!)} style={dipilih.has(x.w.id!) ? { borderColor: 'var(--h)', background: 'linear-gradient(180deg, #effafb, #dff3f6)' } : undefined}>
             <div className="avatar">{dipilih.has(x.w.id!) ? '✓' : inisial(x.w.nama)}</div>
             <div className="isi">
               <div className="nama">{x.w.nama}</div>

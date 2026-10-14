@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Ikon } from './components/ui'
 import { pastikanAdminAwal, useAuth } from './lib/auth'
 import { ChipSinkron } from './components/FormServer'
@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard'
 import KegiatanDetail from './pages/KegiatanDetail'
 import KegiatanList from './pages/KegiatanList'
 import Laporan from './pages/Laporan'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Pengaturan from './pages/Pengaturan'
 import TindakLanjut from './pages/TindakLanjut'
@@ -31,6 +32,7 @@ export default function App() {
   const [dbSiap, setDbSiap] = useState(false)
   const p = usePengaturan()
   const sinkron = useStatusSinkron()
+  const { pathname } = useLocation()
 
   useEffect(() => {
     inisialisasi({ isiBawaan: !adaCloud() })
@@ -39,7 +41,13 @@ export default function App() {
   }, [])
 
   if (!siap || !dbSiap) return null
-  if (!user) return <Login />
+  if (!user)
+    return (
+      <Routes>
+        <Route path="/masuk" element={<Login />} />
+        <Route path="*" element={<Landing />} />
+      </Routes>
+    )
 
   return (
     <div className="app">
@@ -65,6 +73,7 @@ export default function App() {
         ))}
       </nav>
       <main className="main">
+        <div className="halaman" key={pathname}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/kegiatan" element={<KegiatanList />} />
@@ -79,6 +88,7 @@ export default function App() {
           <Route path="/pengaturan" element={<Pengaturan />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </div>
       </main>
     </div>
   )

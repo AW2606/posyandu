@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bar, Ikon, Kosong } from '../components/ui'
+import { Angka, Bar, Cincin, Ikon, Kosong } from '../components/ui'
 import { tglPanjang } from '../lib/age'
 import { db, URUTAN_TAHAP, NAMA_TAHAP } from '../lib/db'
 import { pilihKegiatanAktif, useKategori, useKegiatanList, usePengaturan } from '../lib/hooks'
@@ -70,7 +70,7 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          <div className="kartu" style={{ background: 'var(--h)', color: '#fff', border: 0 }}>
+          <div className="kartu hero">
             <p style={{ margin: 0, opacity: .85, fontSize: 13 }}>Kegiatan</p>
             <h3 style={{ fontSize: 22, margin: '2px 0 12px' }}>{kegiatan && tglPanjang(kegiatan.tanggal)}</h3>
             <div className="baris">
@@ -84,10 +84,13 @@ export default function Dashboard() {
           </div>
 
           <div className="grid4" style={{ marginBottom: 14 }}>
-            <div className="stat"><div className="angka">{d.n}</div><div className="lbl">Peserta hadir</div></div>
-            <div className="stat hijau"><div className="angka">{persen}%</div><div className="lbl">Kehadiran dari {sasaran} sasaran</div></div>
-            <div className="stat"><div className="angka">{d.terukur}</div><div className="lbl">Sudah diukur</div></div>
-            <div className="stat"><div className="angka">{sasaran - d.n}</div><div className="lbl">Belum hadir</div></div>
+            <div className="stat"><div className="angka"><Angka nilai={d.n} /></div><div className="lbl">Peserta hadir</div></div>
+            <div className="stat hijau stat-hadir">
+              <Cincin persen={persen} />
+              <div><div className="angka"><Angka nilai={persen} />%</div><div className="lbl">Kehadiran dari {sasaran} sasaran</div></div>
+            </div>
+            <div className="stat"><div className="angka"><Angka nilai={d.terukur} /></div><div className="lbl">Sudah diukur</div></div>
+            <div className="stat"><div className="angka"><Angka nilai={sasaran - d.n} /></div><div className="lbl">Belum hadir</div></div>
           </div>
 
           <Link className="item" to="/tindak-lanjut" style={{ marginBottom: 14 }}>
@@ -106,10 +109,10 @@ export default function Dashboard() {
           <div className="kartu">
             <h3>Penanda risiko pada kegiatan ini</h3>
             <div className="grid4">
-              <div className={`stat ${d.T ? 'merah' : ''}`}><div className="angka">{d.T}</div><div className="lbl">Tensi berisiko (T)</div></div>
-              <div className={`stat ${d.perut ? 'merah' : ''}`}><div className="angka">{d.perut}</div><div className="lbl">Lingkar perut berisiko</div></div>
-              <div className={`stat ${d.kurus ? 'merah' : ''}`}><div className="angka">{d.kurus}</div><div className="lbl">IMT kurus</div></div>
-              <div className={`stat ${d.gemuk ? 'merah' : ''}`}><div className="angka">{d.gemuk}</div><div className="lbl">IMT gemuk</div></div>
+              <div className={`stat ${d.T ? 'merah' : ''}`}><div className="angka"><Angka nilai={d.T} /></div><div className="lbl">Tensi berisiko (T)</div></div>
+              <div className={`stat ${d.perut ? 'merah' : ''}`}><div className="angka"><Angka nilai={d.perut} /></div><div className="lbl">Lingkar perut berisiko</div></div>
+              <div className={`stat ${d.kurus ? 'merah' : ''}`}><div className="angka"><Angka nilai={d.kurus} /></div><div className="lbl">IMT kurus</div></div>
+              <div className={`stat ${d.gemuk ? 'merah' : ''}`}><div className="angka"><Angka nilai={d.gemuk} /></div><div className="lbl">IMT gemuk</div></div>
             </div>
           </div>
 

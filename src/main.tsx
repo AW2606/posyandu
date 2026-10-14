@@ -6,6 +6,7 @@ import { AuthProvider } from './lib/auth'
 import { ToastProvider } from './components/ui'
 import { terimaTautan } from './lib/cloud'
 import './styles.css'
+import './tema.css'
 
 terimaTautan()
 
