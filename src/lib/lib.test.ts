@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { KATEGORI_DEFAULT, kategoriDari, parseTanggalBebas, perkiraanLahir, umurTahun, usiaHamil } from './age'
-import { AMBANG_DEFAULT, hitungIMT, lingkarPerutBerisiko, statusGizi } from './health'
+import { KATEGORI_DEFAULT, kategoriDari, kegiatanPadaBulan, parseTanggalBebas, perkiraanLahir, tanggalAcuanBulan, umurTahun, usiaHamil } from './age'
+import { AMBANG_DEFAULT, hitungIMT, lingkarPerutBerisiko, rekapRisiko, statusGizi } from './health'
 
 const kat = (lahir: string, ref: string) => kategoriDari(lahir, ref, KATEGORI_DEFAULT)?.kode
 
@@ -39,6 +39,30 @@ describe('kesehatan', () => {
     expect(lingkarPerutBerisiko(90.1, 'L', AMBANG_DEFAULT)).toBe(true)
     expect(lingkarPerutBerisiko(80, 'P', AMBANG_DEFAULT)).toBe(false)
     expect(lingkarPerutBerisiko(81, 'P', AMBANG_DEFAULT)).toBe(true)
+  })
+  it('rekap risiko menghitung setiap penanda', () => {
+    const r = rekapRisiko(
+      [
+        { jk: 'L', bb: 45, tb: 170, sistol: 140, diastol: 80, lingkarPerut: 95 }, // kurus, T, perut
+        { jk: 'P', bb: 80, tb: 160, sistol: 110, diastol: 70, lingkarPerut: 80 }, // gemuk
+        { jk: 'P', bb: 55, tb: 160 }, // normal, tanpa tensi
+      ],
+      AMBANG_DEFAULT,
+    )
+    expect(r).toEqual({ T: 1, perut: 1, kurus: 1, gemuk: 1 })
+  })
+})
+
+describe('periode laporan', () => {
+  const list = [{ tanggal: '2026-11-20' }, { tanggal: '2026-10-15' }, { tanggal: '2026-11-05' }, { tanggal: '2025-11-05' }]
+  it('kegiatan disaring per bulan dan tahun, urut tanggal', () => {
+    expect(kegiatanPadaBulan(list, 2026, 11).map((g) => g.tanggal)).toEqual(['2026-11-05', '2026-11-20'])
+    expect(kegiatanPadaBulan(list, 2026, 1)).toEqual([])
+  })
+  it('tanggal acuan: kegiatan terakhir bulan itu, atau akhir bulan', () => {
+    expect(tanggalAcuanBulan(list, 2026, 11)).toBe('2026-11-20')
+    expect(tanggalAcuanBulan(list, 2026, 2)).toBe('2026-02-28')
+    expect(tanggalAcuanBulan(list, 2024, 2)).toBe('2024-02-29')
   })
 })
 

@@ -36,13 +36,16 @@ export interface HasilLaporan {
   orientasi: 'portrait' | 'landscape'
 }
 
-export type NamaParam = 'rt' | 'tanggal' | 'tahun' | 'warga' | 'kegiatan' | 'jenisObat' | 'jenisIbu'
+export type NamaParam = 'rt' | 'bulan' | 'tanggal' | 'tahun' | 'warga' | 'kegiatan' | 'jenisObat' | 'jenisIbu'
 
 export interface ParamLaporan {
   tanggal: string
+  /** 1-12, dipakai bersama `tahun` */
+  bulan: number
   tahun: number
   rt: string
   wargaId?: number
+  /** kosong = semua kegiatan pada bulan terpilih */
   kegiatanId?: number
   jenisObat: string
   jenisIbu: 'hamil' | 'menyusui' | 'keduanya'

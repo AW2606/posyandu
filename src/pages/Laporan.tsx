@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Field, Ikon, Kosong } from '../components/ui'
-import { parseISO, tglPanjang } from '../lib/age'
+import { kegiatanPadaBulan, NAMA_BULAN, parseISO, tanggalAcuanBulan, tglPanjang } from '../lib/age'
 import { db } from '../lib/db'
 import { pilihKegiatanAktif, useKategori, useKegiatanList, usePengaturan } from '../lib/hooks'
 import { DAFTAR_LAPORAN } from '../reports/definisi'
@@ -17,14 +17,15 @@ export default function Laporan() {
   const aktif = pilihKegiatanAktif(kegiatan)
   const [kode, setKode] = useState<string | null>(null)
   const [param, setParam] = useState<ParamLaporan>({
-    tanggal: '', tahun: new Date().getFullYear(), rt: 'semua', jenisObat: 'Obat Cacing', jenisIbu: 'keduanya', ttd: false,
+    tanggal: '', bulan: new Date().getMonth() + 1, tahun: new Date().getFullYear(), rt: 'semua', jenisObat: 'Obat Cacing', jenisIbu: 'keduanya', ttd: false,
   })
   const [cariWarga, setCariWarga] = useState('')
 
   // isi bawaan dari kegiatan aktif, sekali saja
   useEffect(() => {
     if (aktif && !param.tanggal) {
-      setParam((x) => ({ ...x, tanggal: aktif.tanggal, tahun: parseISO(aktif.tanggal).y, kegiatanId: aktif.id }))
+      const { y, m } = parseISO(aktif.tanggal)
+      setParam((x) => ({ ...x, tanggal: aktif.tanggal, tahun: y, bulan: m }))
     }
   }, [aktif, param.tanggal])
   useEffect(() => {
@@ -47,6 +48,9 @@ export default function Laporan() {
   )
 
   const set = <K extends keyof ParamLaporan>(k: K, v: ParamLaporan[K]) => setParam((x) => ({ ...x, [k]: v }))
+  // ganti periode: tanggal acuan ikut, pilihan kegiatan lama tidak berlaku lagi
+  const setPeriode = (bulan: number, tahun: number) =>
+    setParam((x) => ({ ...x, bulan, tahun, kegiatanId: undefined, tanggal: tahun >= 1000 ? tanggalAcuanBulan(kegiatan, tahun, bulan) : x.tanggal }))
 
   // skala pratinjau agar muat di layar HP
   const wadah = useRef<HTMLDivElement>(null)
@@ -84,7 +88,6 @@ export default function Laporan() {
   }
 
   const perluTanggal = def.param.includes('tanggal')
-  const kegiatanTerpilih = kegiatan.find((k) => k.id === param.kegiatanId)
 
   return (
     <>
@@ -103,21 +106,28 @@ export default function Laporan() {
               </select>
             </Field>
           )}
+          {def.param.includes('bulan') && (
+            <Field label="Bulan">
+              <select className="input" value={param.bulan} onChange={(e) => setPeriode(Number(e.target.value), param.tahun)}>
+                {NAMA_BULAN.map((b, i) => <option key={b} value={i + 1}>{b}</option>)}
+              </select>
+            </Field>
+          )}
+          {def.param.includes('tahun') && (
+            <Field label="Tahun">
+              <input className="input" type="number" inputMode="numeric" value={param.tahun} onChange={(e) => setPeriode(param.bulan, Number(e.target.value))} />
+            </Field>
+          )}
           {perluTanggal && (
             <Field label="Tanggal acuan umur" petunjuk="Kategori dihitung pada tanggal ini.">
               <input className="input" type="date" value={param.tanggal} onChange={(e) => set('tanggal', e.target.value)} />
             </Field>
           )}
-          {def.param.includes('tahun') && (
-            <Field label="Tahun">
-              <input className="input" type="number" inputMode="numeric" value={param.tahun} onChange={(e) => set('tahun', Number(e.target.value))} />
-            </Field>
-          )}
           {def.param.includes('kegiatan') && (
             <Field label="Kegiatan">
               <select className="input" value={param.kegiatanId ?? ''} onChange={(e) => set('kegiatanId', Number(e.target.value) || undefined)}>
-                <option value="">Pilih kegiatan</option>
-                {kegiatan.map((k) => <option key={k.id} value={k.id}>{tglPanjang(k.tanggal)}</option>)}
+                <option value="">Semua kegiatan bulan ini</option>
+                {kegiatanPadaBulan(kegiatan, param.tahun, param.bulan).map((k) => <option key={k.id} value={k.id}>{tglPanjang(k.tanggal)}</option>)}
               </select>
             </Field>
           )}
@@ -169,7 +179,7 @@ export default function Laporan() {
         <div className="kartu">
           <Kosong
             judul="Belum ada data untuk dilaporkan"
-            teks={def.kode === 'kartu-pemeriksaan' ? 'Pilih warga terlebih dahulu.' : def.kode === 'hasil-pemeriksaan' || def.kode === 'pemberian-obat' ? (kegiatanTerpilih ? 'Belum ada data pada kegiatan ini.' : 'Pilih kegiatan terlebih dahulu.') : 'Ubah parameter di atas.'}
+            teks={def.kode === 'kartu-pemeriksaan' ? 'Pilih warga terlebih dahulu.' : def.kode === 'hasil-pemeriksaan' || def.kode === 'pemberian-obat' ? 'Belum ada data pada periode ini. Coba bulan lain.' : 'Ubah parameter di atas.'}
           />
         </div>
       ) : (

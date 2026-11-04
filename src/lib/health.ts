@@ -56,6 +56,22 @@ export function tekananDarahBerisiko(
   return (sis !== undefined && sis >= a.tdSistol) || (dia !== undefined && dia >= a.tdDiastol)
 }
 
+/** Jumlah penanda risiko dari hasil ukur yang diberikan (mis. satu kegiatan). */
+export function rekapRisiko(
+  baris: Array<{ jk: JK; bb?: number; tb?: number; sistol?: number; diastol?: number; lingkarPerut?: number }>,
+  a: Ambang,
+): { T: number; perut: number; kurus: number; gemuk: number } {
+  const r = { T: 0, perut: 0, kurus: 0, gemuk: 0 }
+  for (const x of baris) {
+    const gizi = statusGizi(hitungIMT(x.bb, x.tb), a)
+    if (tekananDarahBerisiko(x.sistol, x.diastol, a)) r.T++
+    if (lingkarPerutBerisiko(x.lingkarPerut, x.jk, a)) r.perut++
+    if (gizi === 'Kurus') r.kurus++
+    if (gizi === 'Gemuk') r.gemuk++
+  }
+  return r
+}
+
 export type Kadar = 'Normal' | 'Tinggi'
 
 export function ketGula(v: number | undefined, a: Ambang): Kadar | '' {

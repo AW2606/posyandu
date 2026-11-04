@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Angka, Bar, Cincin, Ikon, Kosong } from '../components/ui'
 import { tglPanjang } from '../lib/age'
 import { db, URUTAN_TAHAP, NAMA_TAHAP } from '../lib/db'
+import { rekapRisiko } from '../lib/health'
 import { pilihKegiatanAktif, useKategori, useKegiatanList, usePengaturan } from '../lib/hooks'
 import { useWargaPlus } from '../lib/wargaData'
 
@@ -28,21 +29,17 @@ export default function Dashboard() {
       perRT[x!.w.rt] = (perRT[x!.w.rt] ?? 0) + 1
     }
     const pm = new Map(periksa.map((x) => [x.wargaId, x]))
-    let T = 0, perut = 0, kurus = 0, gemuk = 0
-    for (const x of peserta) {
-      const t = pm.get(x!.w.id!)
-      if (!t) continue
-      // gunakan data kegiatan ini, bukan pemeriksaan terakhir secara umum
-      if (x!.terakhir?.kegiatanId === kegiatan?.id) {
-        if (x!.tinggi) T++
-        if (x!.perutRisiko) perut++
-        if (x!.gizi === 'Kurus') kurus++
-        if (x!.gizi === 'Gemuk') gemuk++
-      }
-    }
+    // gunakan data kegiatan ini, bukan pemeriksaan terakhir secara umum
+    const risiko = rekapRisiko(
+      peserta.flatMap((x) => {
+        const t = pm.get(x!.w.id!)
+        return t ? [{ ...t, jk: x!.w.jk }] : []
+      }),
+      p.ambang,
+    )
     const tahap = URUTAN_TAHAP.map((t) => ({ t, n: kunj.filter((k) => URUTAN_TAHAP.indexOf(k.tahap) >= URUTAN_TAHAP.indexOf(t)).length }))
-    return { n: peserta.length, perKat, perRT, T, perut, kurus, gemuk, tahap, terukur: periksa.length }
-  }, [semua, kunj, periksa, kegiatan?.id])
+    return { n: peserta.length, perKat, perRT, ...risiko, tahap, terukur: periksa.length }
+  }, [semua, kunj, periksa, p.ambang])
 
   const sasaran = semua.length
   const persen = sasaran ? Math.round((d.n / sasaran) * 100) : 0

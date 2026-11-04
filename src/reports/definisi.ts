@@ -1,5 +1,5 @@
-import { kategoriDari, parseISO, tglId, umurTahun } from '../lib/age'
-import { db, type Pemeriksaan, type Warga } from '../lib/db'
+import { kategoriDari, kegiatanPadaBulan, parseISO, tglId, umurTahun } from '../lib/age'
+import { db, type Kegiatan, type Pemeriksaan, type Warga } from '../lib/db'
 import {
   angkaId,
   hitungIMT,
@@ -34,6 +34,14 @@ async function wargaAktif(p: ParamLaporan): Promise<Warga[]> {
   return semua.filter((w) => p.rt === 'semua' || w.rt === p.rt)
 }
 
+async function kegiatanLaporan(p: ParamLaporan): Promise<Kegiatan[]> {
+  if (p.kegiatanId) {
+    const g = await db.kegiatan.get(p.kegiatanId)
+    return g ? [g] : []
+  }
+  return kegiatanPadaBulan(await db.kegiatan.toArray(), p.tahun, p.bulan)
+}
+
 async function sasaranKategori(kode: string[], p: ParamLaporan, k: KonteksLaporan): Promise<Warga[]> {
   const list = await wargaAktif(p)
   return list
@@ -62,7 +70,7 @@ function sasaran(kode: string, nama: string, deskripsi: string, kategori: string
     kode,
     nama,
     deskripsi,
-    param: ['rt', 'tanggal'],
+    param: ['rt', 'bulan', 'tahun', 'tanggal'],
     async bangun(p, k) {
       const list = await sasaranKategori(kategori, p, k)
       return [
@@ -108,7 +116,7 @@ const sasaranIbu: DefinisiLaporan = {
   kode: 'sasaran-ibu',
   nama: 'Sasaran Ibu Hamil / Menyusui',
   deskripsi: 'Daftar ibu hamil dan/atau ibu menyusui yang aktif pada tanggal acuan.',
-  param: ['rt', 'tanggal', 'jenisIbu'],
+  param: ['rt', 'bulan', 'tahun', 'tanggal', 'jenisIbu'],
   async bangun(p, k) {
     const aktif = await db.statusKhusus
       .filter((s) => s.mulai <= p.tanggal && (!s.selesai || s.selesai >= p.tanggal))
@@ -288,25 +296,25 @@ const kartuPemeriksaan: DefinisiLaporan = {
 const hasilPemeriksaan: DefinisiLaporan = {
   kode: 'hasil-pemeriksaan',
   nama: 'Hasil Pemeriksaan (kartu gula darah, kolesterol, asam urat)',
-  deskripsi: 'Kartu hasil untuk dibawa pulang warga. Pilih satu kegiatan untuk mencetak semua peserta yang punya hasil, atau pilih satu warga.',
-  param: ['kegiatan', 'warga'],
+  deskripsi: 'Kartu hasil untuk dibawa pulang warga. Pilih bulan untuk mencetak semua peserta yang punya hasil, atau persempit ke satu kegiatan atau satu warga.',
+  param: ['bulan', 'tahun', 'kegiatan', 'warga'],
   async bangun(p, k) {
-    if (!p.kegiatanId) return []
-    const g = await db.kegiatan.get(p.kegiatanId)
-    if (!g) return []
     const a = k.pengaturan.ambang
-    let rows = await db.pemeriksaan.where('kegiatanId').equals(g.id!).toArray()
-    rows = rows.filter((x) => x.gulaDarah !== undefined || x.kolesterol !== undefined || x.asamUrat !== undefined)
-    if (p.wargaId) rows = rows.filter((x) => x.wargaId === p.wargaId)
     const out: HasilHasil[] = []
-    for (const x of rows) {
-      const w = await db.warga.get(x.wargaId)
-      const kj = await db.kunjungan.get(x.kunjunganId)
-      if (w) out.push({ w, x, no: kj?.noAntrean })
+    for (const g of await kegiatanLaporan(p)) {
+      let rows = await db.pemeriksaan.where('kegiatanId').equals(g.id!).toArray()
+      rows = rows.filter((x) => x.gulaDarah !== undefined || x.kolesterol !== undefined || x.asamUrat !== undefined)
+      if (p.wargaId) rows = rows.filter((x) => x.wargaId === p.wargaId)
+      const hasilKegiatan: HasilHasil[] = []
+      for (const x of rows) {
+        const w = await db.warga.get(x.wargaId)
+        const kj = await db.kunjungan.get(x.kunjunganId)
+        if (w) hasilKegiatan.push({ w, x, g, no: kj?.noAntrean })
+      }
+      out.push(...hasilKegiatan.sort((m, n) => (m.no ?? 0) - (n.no ?? 0)))
     }
-    out.sort((m, n) => (m.no ?? 0) - (n.no ?? 0))
     const s = k.pengaturan
-    return out.map(({ w, x, no }): HasilLaporan => ({
+    return out.map(({ w, x, g, no }): HasilLaporan => ({
       kop: [s.namaPosyandu, ...s.alamatKop.split('\n')],
       gayaKop: 'garis',
       judul: 'HASIL PEMERIKSAAN',
@@ -344,26 +352,28 @@ const hasilPemeriksaan: DefinisiLaporan = {
 interface HasilHasil {
   w: Warga
   x: Pemeriksaan
+  g: Kegiatan
   no?: number
 }
 
 const pemberianObat: DefinisiLaporan = {
   kode: 'pemberian-obat',
   nama: 'Pemberian Obat Cacing / Vitamin A',
-  deskripsi: 'Daftar penerima obat atau vitamin pada satu kegiatan.',
-  param: ['kegiatan', 'jenisObat'],
+  deskripsi: 'Daftar penerima obat atau vitamin pada bulan terpilih, satu lembar per kegiatan.',
+  param: ['bulan', 'tahun', 'kegiatan', 'jenisObat'],
   async bangun(p, k) {
-    if (!p.kegiatanId) return []
-    const g = await db.kegiatan.get(p.kegiatanId)
-    if (!g) return []
-    const rows = await db.layananObat.where('kegiatanId').equals(g.id!).filter((x) => x.jenis === p.jenisObat).toArray()
+    const kegiatan = await kegiatanLaporan(p)
     const warga = new Map((await db.warga.toArray()).map((w) => [w.id!, w]))
-    const isi = rows
-      .map((r) => ({ r, w: warga.get(r.wargaId) }))
-      .filter((z): z is { r: typeof z.r; w: Warga } => !!z.w)
-      .sort((m, n) => m.w.nama.localeCompare(n.w.nama, 'id'))
-    return [
-      {
+    const out: HasilLaporan[] = []
+    for (const g of kegiatan) {
+      const rows = await db.layananObat.where('kegiatanId').equals(g.id!).filter((x) => x.jenis === p.jenisObat).toArray()
+      const isi = rows
+        .map((r) => ({ r, w: warga.get(r.wargaId) }))
+        .filter((z): z is { r: typeof z.r; w: Warga } => !!z.w)
+        .sort((m, n) => m.w.nama.localeCompare(n.w.nama, 'id'))
+      // lembar kosong hanya berguna bila kegiatannya dipilih sendiri
+      if (!isi.length && kegiatan.length > 1) continue
+      out.push({
         kop: [k.pengaturan.namaPosyandu, `PEMBERIAN ${p.jenisObat.toUpperCase()}`, `Tanggal: ${tglId(g.tanggal)}`],
         gayaKop: 'tengah',
         orientasi: 'portrait',
@@ -379,8 +389,9 @@ const pemberianObat: DefinisiLaporan = {
             minBaris: 20,
           },
         ],
-      },
-    ]
+      })
+    }
+    return out
   },
 }
 

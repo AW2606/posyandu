@@ -28,6 +28,17 @@ export function toISO(y: number, m: number, d: number): string {
   return `${y.toString().padStart(4, '0')}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`
 }
 
+/** Kegiatan pada satu bulan, urut dari yang paling awal. */
+export function kegiatanPadaBulan<T extends { tanggal: string }>(list: T[], tahun: number, bulan: number): T[] {
+  const awalan = toISO(tahun, bulan, 1).slice(0, 8)
+  return list.filter((g) => g.tanggal.startsWith(awalan)).sort((a, b) => a.tanggal.localeCompare(b.tanggal))
+}
+
+/** Tanggal acuan umur untuk laporan bulanan: kegiatan terakhir bulan itu, atau akhir bulan bila belum ada. */
+export function tanggalAcuanBulan(list: Array<{ tanggal: string }>, tahun: number, bulan: number): string {
+  return kegiatanPadaBulan(list, tahun, bulan).pop()?.tanggal ?? toISO(tahun, bulan, new Date(tahun, bulan, 0).getDate())
+}
+
 export function todayISO(): string {
   const n = new Date()
   return toISO(n.getFullYear(), n.getMonth() + 1, n.getDate())
