@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Chip, Ikon, Kosong, inisial } from '../components/ui'
 import { formatUmur, todayISO, tglId } from '../lib/age'
+import { useAuth } from '../lib/auth'
 import { unduhTeks } from '../lib/csv'
 import { useKategori, usePengaturan } from '../lib/hooks'
 import { useWargaPlus, type WargaPlus } from '../lib/wargaData'
@@ -21,6 +22,7 @@ export default function WargaList() {
   const semua = useWargaPlus(ref)
   const kategori = useKategori()
   const p = usePengaturan()
+  const { isAdmin } = useAuth()
   const [q, setQ] = useState('')
   const [kat, setKat] = useState('semua')
   const [rt, setRt] = useState('semua')
@@ -108,11 +110,16 @@ export default function WargaList() {
 
       {semua.length === 0 ? (
         <div className="kartu">
-          <Kosong judul="Belum ada data warga" teks="Impor dari berkas CSV, tambah satu per satu, atau muat data contoh untuk mencoba.">
-            <div className="baris" style={{ justifyContent: 'center', marginTop: 12 }}>
-              <Link className="btn utama" to="/warga/impor">Impor CSV</Link>
-              <Link className="btn" to="/pengaturan">Muat data contoh</Link>
-            </div>
+          <Kosong
+            judul="Belum ada data warga"
+            teks={isAdmin ? 'Impor dari berkas CSV, tambah satu per satu, atau muat data contoh untuk mencoba.' : 'Tambahkan warga satu per satu dengan tombol Tambah.'}
+          >
+            {isAdmin && (
+              <div className="baris" style={{ justifyContent: 'center', marginTop: 12 }}>
+                <Link className="btn utama" to="/warga/impor">Impor CSV</Link>
+                <Link className="btn" to="/pengaturan">Muat data contoh</Link>
+              </div>
+            )}
           </Kosong>
         </div>
       ) : hasil.length === 0 ? (

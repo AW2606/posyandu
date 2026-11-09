@@ -86,19 +86,40 @@ export function ketAsamUrat(v: number | undefined, jk: JK, a: Ambang): Kadar | '
 }
 
 /** Peringatan rentang wajar (bukan blokir keras). */
-export function peringatanRentang(p: {
-  bb?: number
-  tb?: number
-  lila?: number
-  lingkarPerut?: number
-}): string[] {
-  const w: string[] = []
-  if (p.tb !== undefined && (p.tb < 30 || p.tb > 220)) w.push('Tinggi badan di luar 30–220 cm, periksa lagi.')
-  if (p.bb !== undefined && (p.bb < 1 || p.bb > 250)) w.push('Berat badan di luar 1–250 kg, periksa lagi.')
-  if (p.lila !== undefined && (p.lila < 5 || p.lila > 60)) w.push('LILA di luar 5–60 cm, periksa lagi.')
-  if (p.lingkarPerut !== undefined && (p.lingkarPerut < 20 || p.lingkarPerut > 200))
-    w.push('Lingkar perut di luar 20–200 cm, periksa lagi.')
-  return w
+export type KolomUkur =
+  | 'bb' | 'tb' | 'lila' | 'lingkarPerut' | 'sistol' | 'diastol' | 'gulaDarah' | 'kolesterol' | 'asamUrat'
+
+/** Batas wajar tiap kolom. Di luar batas ini hampir pasti salah ketik, jadi tidak boleh disimpan. */
+export const RENTANG_UKUR: Record<KolomUkur, { min: number; max: number; satuan: string }> = {
+  bb: { min: 1, max: 250, satuan: 'kg' },
+  tb: { min: 30, max: 220, satuan: 'cm' },
+  lila: { min: 5, max: 60, satuan: 'cm' },
+  lingkarPerut: { min: 20, max: 200, satuan: 'cm' },
+  sistol: { min: 50, max: 300, satuan: 'mmHg' },
+  diastol: { min: 30, max: 200, satuan: 'mmHg' },
+  gulaDarah: { min: 20, max: 700, satuan: 'mg/dl' },
+  kolesterol: { min: 50, max: 600, satuan: 'mg/dl' },
+  asamUrat: { min: 1, max: 20, satuan: 'mg/dl' },
+}
+
+/**
+ * Periksa isian mentah formulir pemeriksaan. Kolom kosong boleh.
+ * Mengembalikan pesan galat per kolom; objek kosong berarti semua valid.
+ */
+export function validasiPemeriksaan(mentah: Partial<Record<KolomUkur, string>>): Partial<Record<KolomUkur, string>> {
+  const g: Partial<Record<KolomUkur, string>> = {}
+  for (const k of Object.keys(mentah) as KolomUkur[]) {
+    const s = (mentah[k] ?? '').trim()
+    if (s === '') continue
+    const n = numOrUndef(s)
+    if (n === undefined) {
+      g[k] = 'Harus berupa angka.'
+      continue
+    }
+    const r = RENTANG_UKUR[k]
+    if (n < r.min || n > r.max) g[k] = `Harus antara ${angkaId(r.min, 0)}–${angkaId(r.max, 0)} ${r.satuan}.`
+  }
+  return g
 }
 
 /** Angka dengan desimal koma, sesuai format laporan. */

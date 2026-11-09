@@ -1,6 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { adaCloud, ambilProfil, emailDariUsername, getKlien, hapusProfilCache, mulaiSinkron } from './cloud'
 import { db, setAuditUser, type Role } from './db'
+import { bacaAktivitas, catatAktivitas, hapusAktivitas, sesiKedaluwarsa, setAlasanKeluar } from './sesi'
+
+const PESAN_IDLE = 'Sesi berakhir karena tidak ada aktivitas selama 30 menit. Silakan masuk lagi.'
+const CEK_IDLE_MS = 30 * 1000
+const JEDA_CATAT_MS = 15 * 1000
 
 // Dua mode:
 // - Lokal (server belum diatur): akun tersimpan di browser. Hanya pembatas tampilan, bukan keamanan sungguhan.
@@ -74,6 +80,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Sesi | null>(null)
   const [siap, setSiap] = useState(false)
   const cloud = adaCloud()
+  const nav = useNavigate()
+
+  /** Hapus sesi tersimpan (lokal atau Supabase) tanpa menyentuh data. */
+  const akhiriSesi = useCallback(() => {
+    hapusAktivitas()
+    if (cloud) {
+      hapusProfilCache()
+      void getKlien().auth.signOut()
+    } else localStorage.removeItem(KUNCI)
+  }, [cloud])
 
   useEffect(() => {
     ;(async () => {
@@ -81,14 +97,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cloud) {
           const { data } = await getKlien().auth.getSession()
           const uid = data.session?.user.id
-          const prof = uid ? await ambilProfil(uid) : null
-          if (uid && prof?.aktif) {
-            setUser({ nama: prof.nama, username: prof.username, role: prof.role, uid })
-            setAuditUser(prof.username)
+          if (uid && sesiKedaluwarsa(bacaAktivitas(), Date.now())) {
+            akhiriSesi()
+            setAlasanKeluar(PESAN_IDLE)
+            nav('/masuk', { replace: true })
+          } else {
+            const prof = uid ? await ambilProfil(uid) : null
+            if (uid && prof?.aktif) {
+              setUser({ nama: prof.nama, username: prof.username, role: prof.role, uid })
+              setAuditUser(prof.username)
+            }
           }
         } else {
           const id = Number(localStorage.getItem(KUNCI))
-          if (id) {
+          if (id && sesiKedaluwarsa(bacaAktivitas(), Date.now())) {
+            akhiriSesi()
+            setAlasanKeluar(PESAN_IDLE)
+            nav('/masuk', { replace: true })
+          } else if (id) {
             const u = await db.users.get(id)
             if (u?.aktif) {
               setUser({ nama: u.nama, username: u.username, role: u.role, id: u.id })
@@ -101,6 +127,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setSiap(true)
     })()
+    // Hanya saat mulai. `nav` sengaja tidak masuk dependensi: di react-router v6 fungsinya berganti
+    // tiap pindah halaman, dan sesi tidak boleh dipulihkan ulang setiap navigasi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cloud])
 
   // sinkron berjalan selama ada yang login
@@ -108,6 +137,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!cloud || !user) return
     return mulaiSinkron()
   }, [cloud, user])
+
+  // Keluar otomatis setelah BATAS_IDLE_MS tanpa aktivitas (di semua tab).
+  useEffect(() => {
+    if (!user) return
+    catatAktivitas()
+    let terakhirDicatat = Date.now()
+
+    const aktif = () => {
+      const t = Date.now()
+      // jangan sampai aktivitas setelah batas "menghidupkan" kembali sesi yang sudah habis
+      if (sesiKedaluwarsa(bacaAktivitas(), t)) return cek()
+      if (t - terakhirDicatat < JEDA_CATAT_MS) return
+      terakhirDicatat = t
+      catatAktivitas(t)
+    }
+    const cek = () => {
+      if (!sesiKedaluwarsa(bacaAktivitas(), Date.now())) return
+      akhiriSesi()
+      setAlasanKeluar(PESAN_IDLE)
+      setUser(null)
+      nav('/masuk', { replace: true })
+    }
+    const saatTerlihat = () => {
+      if (document.visibilityState === 'visible') cek()
+    }
+
+    const peristiwa = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
+    peristiwa.forEach((e) => window.addEventListener(e, aktif, { passive: true }))
+    document.addEventListener('visibilitychange', saatTerlihat)
+    const timer = window.setInterval(cek, CEK_IDLE_MS)
+    return () => {
+      peristiwa.forEach((e) => window.removeEventListener(e, aktif))
+      document.removeEventListener('visibilitychange', saatTerlihat)
+      window.clearInterval(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, akhiriSesi])
 
   const login = useCallback(
     async (username: string, password: string) => {
@@ -124,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await c.auth.signOut()
           return 'Akun belum aktif. Hubungi admin Posyandu.'
         }
+        catatAktivitas()
         setAuditUser(prof.username)
         setUser({ nama: prof.nama, username: prof.username, role: prof.role, uid: data.user.id })
         return null
@@ -132,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!u || !u.aktif) return 'Nama pengguna atau kata sandi salah.'
       if ((await hashPassword(password, u.salt)) !== u.hash) return 'Nama pengguna atau kata sandi salah.'
       localStorage.setItem(KUNCI, String(u.id))
+      catatAktivitas()
       setAuditUser(u.username)
       setUser({ nama: u.nama, username: u.username, role: u.role, id: u.id })
       return null
@@ -140,12 +208,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const logout = useCallback(() => {
-    if (cloud) {
-      hapusProfilCache()
-      void getKlien().auth.signOut()
-    } else localStorage.removeItem(KUNCI)
+    akhiriSesi()
     setUser(null)
-  }, [cloud])
+  }, [akhiriSesi])
 
   const value = useMemo(
     () => ({ user, siap, cloud, login, logout, isAdmin: user?.role === 'admin' }),

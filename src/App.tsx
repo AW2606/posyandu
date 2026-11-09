@@ -81,7 +81,8 @@ export default function App() {
           <Route path="/kegiatan/:id" element={<KegiatanDetail />} />
           <Route path="/warga" element={<WargaList />} />
           <Route path="/warga/baru" element={<WargaForm />} />
-          <Route path="/warga/impor" element={<WargaImpor />} />
+          {/* Impor massal khusus admin, sama seperti menu di Lainnya. Kader yang membuka URL-nya dialihkan. */}
+          <Route path="/warga/impor" element={user.role === 'admin' ? <WargaImpor /> : <Navigate to="/warga" replace />} />
           <Route path="/warga/:id" element={<WargaDetail />} />
           <Route path="/warga/:id/ubah" element={<WargaForm />} />
           <Route path="/tindak-lanjut" element={<TindakLanjut />} />

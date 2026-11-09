@@ -70,7 +70,8 @@ create index if not exists records_seq_idx on public.records (seq);
 
 -- Nomor urut diberikan server setiap baris ditulis; klien menarik berdasarkan nomor ini.
 -- Aturan yang tidak bisa dilewati lewat aplikasi:
---   pengaturan dan kategori hanya boleh diubah admin; warga dan kegiatan hanya boleh dihapus admin.
+--   pengaturan dan kategori hanya boleh diubah admin; warga dan kegiatan hanya boleh dihapus admin;
+--   mengarsipkan/memulihkan warga (mengubah data.aktif) hanya boleh admin.
 create or replace function public.records_guard() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -81,6 +82,11 @@ begin
   end if;
   if new.deleted and new.tbl in ('warga', 'kegiatan') and not public.is_admin() then
     raise exception 'Hanya admin yang boleh menghapus warga atau kegiatan' using errcode = 'P0001';
+  end if;
+  if tg_op = 'UPDATE' and new.tbl = 'warga'
+     and (old.data -> 'aktif') is distinct from (new.data -> 'aktif')
+     and not public.is_admin() then
+    raise exception 'Hanya admin yang boleh mengarsipkan atau memulihkan warga' using errcode = 'P0001';
   end if;
   return new;
 end $$;

@@ -1,6 +1,41 @@
 import { describe, expect, it } from 'vitest'
 import { KATEGORI_DEFAULT, kategoriDari, kegiatanPadaBulan, parseTanggalBebas, perkiraanLahir, tanggalAcuanBulan, umurTahun, usiaHamil } from './age'
-import { AMBANG_DEFAULT, hitungIMT, lingkarPerutBerisiko, rekapRisiko, statusGizi } from './health'
+import { AMBANG_DEFAULT, hitungIMT, lingkarPerutBerisiko, rekapRisiko, statusGizi, validasiPemeriksaan } from './health'
+import { BATAS_IDLE_MS, sesiKedaluwarsa } from './sesi'
+
+describe('batas sesi idle (TC-034)', () => {
+  const t0 = 1_700_000_000_000
+  it('masih aktif sebelum 30 menit', () => {
+    expect(sesiKedaluwarsa(t0, t0 + BATAS_IDLE_MS - 1)).toBe(false)
+    expect(sesiKedaluwarsa(t0, t0 + 29 * 60 * 1000)).toBe(false)
+  })
+  it('habis tepat 30 menit atau lebih', () => {
+    expect(sesiKedaluwarsa(t0, t0 + BATAS_IDLE_MS)).toBe(true)
+    expect(sesiKedaluwarsa(t0, t0 + 2 * BATAS_IDLE_MS)).toBe(true)
+  })
+  it('belum pernah tercatat atau rusak dianggap habis', () => {
+    expect(sesiKedaluwarsa(null, t0)).toBe(true)
+    expect(sesiKedaluwarsa(Number.NaN, t0)).toBe(true)
+  })
+})
+
+describe('validasi pemeriksaan (D-001)', () => {
+  it('kolom kosong dan nilai wajar lolos', () => {
+    expect(validasiPemeriksaan({ bb: '', tb: '  ', lila: '' })).toEqual({})
+    expect(validasiPemeriksaan({ bb: '12,5', tb: '87', sistol: '120', asamUrat: '5,4' })).toEqual({})
+  })
+  it('menolak nilai negatif dan di luar rentang', () => {
+    const g = validasiPemeriksaan({ bb: '-5', tb: '250', sistol: '0' })
+    expect(Object.keys(g).sort()).toEqual(['bb', 'sistol', 'tb'])
+  })
+  it('menolak teks pada kolom angka (bukan diam-diam dikosongkan)', () => {
+    expect(validasiPemeriksaan({ bb: 'abc' }).bb).toBe('Harus berupa angka.')
+    expect(validasiPemeriksaan({ kolesterol: '12a' }).kolesterol).toBe('Harus berupa angka.')
+  })
+  it('batas rentang termasuk', () => {
+    expect(validasiPemeriksaan({ bb: '1', tb: '220' })).toEqual({})
+  })
+})
 
 const kat = (lahir: string, ref: string) => kategoriDari(lahir, ref, KATEGORI_DEFAULT)?.kode
 

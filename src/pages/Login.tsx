@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { bacaAlasanKeluar, hapusAlasanKeluar } from '../lib/sesi'
 import logo from '../logo.jpeg'
 import '../landing.css'
 
@@ -11,6 +12,11 @@ export default function Login() {
   const [lihat, setLihat] = useState(false)
   const [galat, setGalat] = useState<string | null>(null)
   const [proses, setProses] = useState(false)
+  const [info] = useState(bacaAlasanKeluar)
+
+  useEffect(() => {
+    hapusAlasanKeluar()
+  }, [])
 
   async function kirim(e: FormEvent) {
     e.preventDefault()
@@ -45,7 +51,11 @@ export default function Login() {
           </div>
         </label>
 
-        {galat && <div className="lg-err" role="alert">{galat}</div>}
+        {galat ? (
+          <div className="lg-err" role="alert">{galat}</div>
+        ) : (
+          info && <div className="lg-err" role="status">{info}</div>
+        )}
 
         <button className="lp-btn lg-submit" disabled={proses || !username || !password}>
           {proses ? 'Memeriksa…' : 'Masuk'}

@@ -9,9 +9,9 @@ import {
   ketKolesterol,
   lingkarPerutBerisiko,
   numOrUndef,
-  peringatanRentang,
   statusGizi,
   tekananDarahBerisiko,
+  validasiPemeriksaan,
 } from '../lib/health'
 import { usePengaturan } from '../lib/hooks'
 import { simpanPemeriksaan } from '../lib/layanan'
@@ -70,10 +70,24 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
   const gizi = statusGizi(imt, p.ambang)
   const perut = lingkarPerutBerisiko(v.lingkarPerut, warga.jk, p.ambang)
   const td = tekananDarahBerisiko(v.sistol, v.diastol, p.ambang)
-  const peringatan = peringatanRentang(v)
+  const galat = useMemo(
+    () =>
+      validasiPemeriksaan({
+        bb, tb, lila, lingkarPerut: lp, sistol: sis, diastol: dia, gulaDarah: gula, kolesterol: kol, asamUrat: au,
+      }),
+    [bb, tb, lila, lp, sis, dia, gula, kol, au],
+  )
+  const adaGalat = Object.keys(galat).length > 0
   const kosongSemua = Object.values(v).every((x) => x === undefined)
+  const kelas = (k: keyof typeof galat) => `input ${galat[k] ? 'salah' : ''}`
 
   async function simpan(opsi: { dilayani?: boolean; berikutnya?: boolean }) {
+    // Jangan simpan apa pun selama ada isian tidak valid, supaya data lama tidak tertimpa.
+    if (adaGalat) {
+      if ((galat.gulaDarah || galat.kolesterol || galat.asamUrat) && !lanjut) setLanjut(true)
+      toast('Periksa lagi isian yang ditandai merah')
+      return
+    }
     if (!kosongSemua) await simpanPemeriksaan(kunjungan.id!, { ...v, catatan })
     const minimal: Tahap = kosongSemua ? 'terdaftar' : 'terukur'
     const akhir: Tahap = opsi.dilayani
@@ -102,18 +116,18 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
       )}
 
       <div className="grid2">
-        <Field label="Berat badan (kg)">
-          <input className="input" inputMode="decimal" value={bb} onChange={(e) => setBb(e.target.value)} autoFocus />
+        <Field label="Berat badan (kg)" galat={galat.bb}>
+          <input className={kelas('bb')} inputMode="decimal" value={bb} onChange={(e) => setBb(e.target.value)} autoFocus />
         </Field>
-        <Field label={kolBalita ? 'Panjang/tinggi (cm)' : 'Tinggi badan (cm)'}>
-          <input className="input" inputMode="decimal" value={tb} onChange={(e) => setTb(e.target.value)} />
+        <Field label={kolBalita ? 'Panjang/tinggi (cm)' : 'Tinggi badan (cm)'} galat={galat.tb}>
+          <input className={kelas('tb')} inputMode="decimal" value={tb} onChange={(e) => setTb(e.target.value)} />
         </Field>
-        <Field label="LILA (cm)">
-          <input className="input" inputMode="decimal" value={lila} onChange={(e) => setLila(e.target.value)} />
+        <Field label="LILA (cm)" galat={galat.lila}>
+          <input className={kelas('lila')} inputMode="decimal" value={lila} onChange={(e) => setLila(e.target.value)} />
         </Field>
         {!kolBalita && (
-          <Field label="Lingkar perut (cm)">
-            <input className="input" inputMode="decimal" value={lp} onChange={(e) => setLp(e.target.value)} />
+          <Field label="Lingkar perut (cm)" galat={galat.lingkarPerut}>
+            <input className={kelas('lingkarPerut')} inputMode="decimal" value={lp} onChange={(e) => setLp(e.target.value)} />
           </Field>
         )}
       </div>
@@ -121,11 +135,11 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
       {dewasa && (
         <>
           <div className="grid2">
-            <Field label="Tensi atas (sistol)">
-              <input className="input" inputMode="numeric" value={sis} onChange={(e) => setSis(e.target.value)} />
+            <Field label="Tensi atas (sistol)" galat={galat.sistol}>
+              <input className={kelas('sistol')} inputMode="numeric" value={sis} onChange={(e) => setSis(e.target.value)} />
             </Field>
-            <Field label="Tensi bawah (diastol)">
-              <input className="input" inputMode="numeric" value={dia} onChange={(e) => setDia(e.target.value)} />
+            <Field label="Tensi bawah (diastol)" galat={galat.diastol}>
+              <input className={kelas('diastol')} inputMode="numeric" value={dia} onChange={(e) => setDia(e.target.value)} />
             </Field>
           </div>
           <button type="button" className="btn kecil" style={{ marginBottom: 12 }} onClick={() => setLanjut(!lanjut)}>
@@ -133,14 +147,14 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
           </button>
           {lanjut && (
             <div className="grid3">
-              <Field label="Gula (mg/dl)">
-                <input className="input" inputMode="numeric" value={gula} onChange={(e) => setGula(e.target.value)} />
+              <Field label="Gula (mg/dl)" galat={galat.gulaDarah}>
+                <input className={kelas('gulaDarah')} inputMode="numeric" value={gula} onChange={(e) => setGula(e.target.value)} />
               </Field>
-              <Field label="Kolesterol">
-                <input className="input" inputMode="numeric" value={kol} onChange={(e) => setKol(e.target.value)} />
+              <Field label="Kolesterol" galat={galat.kolesterol}>
+                <input className={kelas('kolesterol')} inputMode="numeric" value={kol} onChange={(e) => setKol(e.target.value)} />
               </Field>
-              <Field label="Asam urat">
-                <input className="input" inputMode="decimal" value={au} onChange={(e) => setAu(e.target.value)} />
+              <Field label="Asam urat" galat={galat.asamUrat}>
+                <input className={kelas('asamUrat')} inputMode="decimal" value={au} onChange={(e) => setAu(e.target.value)} />
               </Field>
             </div>
           )}
@@ -157,9 +171,6 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
         {v.kolesterol !== undefined && <Chip warna={ketKolesterol(v.kolesterol, p.ambang) === 'Tinggi' ? 'merah' : 'hijau'}>Kolesterol {ketKolesterol(v.kolesterol, p.ambang)}</Chip>}
         {v.asamUrat !== undefined && <Chip warna={ketAsamUrat(v.asamUrat, warga.jk, p.ambang) === 'Tinggi' ? 'merah' : 'hijau'}>Asam urat {ketAsamUrat(v.asamUrat, warga.jk, p.ambang)}</Chip>}
       </div>
-      {peringatan.map((w) => (
-        <div key={w} className="banner peringatan kecil">{w}</div>
-      ))}
 
       <Field label="Topik penyuluhan (opsional)">
         <input className="input" value={penyuluhan} onChange={(e) => setPenyuluhan(e.target.value)} />

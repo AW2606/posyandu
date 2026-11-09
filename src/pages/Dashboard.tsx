@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Angka, Bar, Cincin, Ikon, Kosong } from '../components/ui'
 import { tglPanjang } from '../lib/age'
+import { useAuth } from '../lib/auth'
 import { db, URUTAN_TAHAP, NAMA_TAHAP } from '../lib/db'
 import { rekapRisiko } from '../lib/health'
 import { pilihKegiatanAktif, useKategori, useKegiatanList, usePengaturan } from '../lib/hooks'
@@ -10,6 +11,7 @@ import { useWargaPlus } from '../lib/wargaData'
 
 export default function Dashboard() {
   const list = useKegiatanList()
+  const { isAdmin } = useAuth()
   const p = usePengaturan()
   const kategori = useKategori()
   const [pilih, setPilih] = useState<number | null>(null)
@@ -56,11 +58,13 @@ export default function Dashboard() {
             <div className="baris" style={{ justifyContent: 'center', marginTop: 12 }}>
               {sasaran ? (
                 <Link className="btn utama" to="/kegiatan">Buat kegiatan</Link>
-              ) : (
+              ) : isAdmin ? (
                 <>
                   <Link className="btn utama" to="/warga/impor">Impor data warga</Link>
                   <Link className="btn" to="/pengaturan">Muat data contoh</Link>
                 </>
+              ) : (
+                <Link className="btn utama" to="/warga/baru">Tambah warga</Link>
               )}
             </div>
           </Kosong>
