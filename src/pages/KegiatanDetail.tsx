@@ -2,8 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import PeriksaSheet from '../components/PeriksaSheet'
-import { Chip, Field, Ikon, Konfirmasi, Kosong, Sheet, inisial, useToast } from '../components/ui'
-import { formatUmur, tglPanjang } from '../lib/age'
+import { Chip, ChipKategori, Field, Ikon, JudulKartu, KepalaHalaman, Konfirmasi, Kosong, Sheet, inisial, useToast, warnaKategori } from '../components/ui'
+import { formatUmur, tglPanjang, todayISO } from '../lib/age'
 import { useAuth } from '../lib/auth'
 import { catat, db, NAMA_TAHAP, URUTAN_TAHAP, type Kunjungan } from '../lib/db'
 import { KODE_TAHAP_WARNA, useKategoriMap, usePengaturan } from '../lib/hooks'
@@ -84,54 +84,65 @@ export default function KegiatanDetail() {
     const x = wargaMap.get(k.wargaId)
     if (!x) return null
     const pm = periksaMap.get(k.id!)
+    const warnaNo = k.tahap === 'dilayani' ? 'hijau' : k.tahap === 'terdaftar' ? 'kuning' : ''
     return (
       <button key={k.id} className="item" onClick={() => setBuka(k.id!)}>
-        <div className="avatar antre">{k.noAntrean}</div>
+        <div className={`petak-no ${warnaNo}`}><small>NO</small><b>{k.noAntrean}</b></div>
         <div className="isi">
           <div className="nama">{x.w.nama}</div>
           <div className="sub">
-            <span>{formatUmur(x.w.tanggalLahir, kegiatan.tanggal)} · RT {x.w.rt}</span>
-            <Chip warna="biru">{katMap[x.kode]?.nama}</Chip>
-            {x.hamil && <Chip warna="kuning">Hamil</Chip>}
-            {x.menyusui && <Chip warna="kuning">Menyusui</Chip>}
-            {pm?.bb !== undefined && <span>{String(pm.bb).replace('.', ',')} kg</span>}
+            <span>{formatUmur(x.w.tanggalLahir, kegiatan.tanggal)} · RT {x.w.rt}{pm?.bb !== undefined ? ` · ${String(pm.bb).replace('.', ',')} kg` : ''}</span>
+            <ChipKategori kode={x.kode} nama={katMap[x.kode]?.nama} />
+            {x.hamil && <Chip warna="koral">Hamil</Chip>}
+            {x.menyusui && <Chip warna="koral">Menyusui</Chip>}
           </div>
-          <div className="tahap" style={{ marginTop: 6 }} aria-label={`Tahap ${NAMA_TAHAP[k.tahap]}`}>
+          <div className={`tahap ${k.tahap}`} style={{ marginTop: 10 }} aria-label={`Tahap ${NAMA_TAHAP[k.tahap]}`}>
             {URUTAN_TAHAP.map((t, i) => <i key={t} className={i <= URUTAN_TAHAP.indexOf(k.tahap) ? 'on' : ''} />)}
           </div>
         </div>
-        <Chip warna={KODE_TAHAP_WARNA[k.tahap] as 'abu'}>{NAMA_TAHAP[k.tahap]}</Chip>
+        <span className="ujung">
+          <Chip warna={KODE_TAHAP_WARNA[k.tahap] as 'abu'} titik>{NAMA_TAHAP[k.tahap]}</Chip>
+          {k.tahap === 'terdaftar'
+            ? <span className="btn-ikon gelap" aria-hidden><Ikon nama="pensil" ukuran={17} /></span>
+            : <span className="btn-ikon" aria-hidden><Ikon nama="panah" ukuran={18} /></span>}
+        </span>
       </button>
     )
   }
 
+  const hariIni = kegiatan.tanggal === todayISO()
+  const WARNA_STAT: Record<string, string> = { terdaftar: '#6B7A73', terukur: '#3B82A8', tercatat: '#E09A1B', dilayani: '#2E8B6A' }
+
   return (
     <>
-      <div className="judul-halaman">
-        <h2>{tglPanjang(kegiatan.tanggal)}</h2>
-        <Link className="btn kecil" to="/laporan">
-          <Ikon nama="cetak" ukuran={18} /> Laporan
+      <KepalaHalaman
+        kembali={{ to: '/kegiatan', label: 'Hari Posyandu' }}
+        label={hariIni ? 'Meja layanan · Hari ini' : 'Meja layanan'}
+        judul={tglPanjang(kegiatan.tanggal)}
+        sub={kegiatan.lokasi}
+      >
+        <Link className="btn" to="/laporan">
+          <Ikon nama="cetak" ukuran={20} /> Cetak laporan
         </Link>
-      </div>
-      <p className="redup" style={{ marginTop: -6 }}>{kegiatan.lokasi}</p>
+      </KepalaHalaman>
 
-      <div className="grid4" style={{ marginBottom: 14 }}>
+      <div className="grid4" style={{ marginBottom: 24 }}>
         {hitungTahap.map(({ t, n }) => (
-          <div key={t} className={`stat ${t === 'dilayani' ? 'hijau' : ''}`}>
-            <div className="angka">{n}</div>
-            <div className="lbl">{NAMA_TAHAP[t]}</div>
+          <div key={t} className="stat-garis">
+            <i style={{ background: WARNA_STAT[t] }} />
+            <div><b>{n}</b><span>{NAMA_TAHAP[t]}</span></div>
           </div>
         ))}
       </div>
 
       <div className="tab" role="tablist">
-        <button className={tab === 'peserta' ? 'aktif' : ''} onClick={() => setTab('peserta')}>Peserta ({kunj.length})</button>
-        <button className={tab === 'belum' ? 'aktif' : ''} onClick={() => setTab('belum')}>Belum hadir ({semua.length - kunj.length})</button>
-        <button className={tab === 'obat' ? 'aktif' : ''} onClick={() => setTab('obat')}>Obat/Vitamin ({obat.length})</button>
+        <button className={tab === 'peserta' ? 'aktif' : ''} onClick={() => setTab('peserta')}>Peserta <span className="lencana">{kunj.length}</span></button>
+        <button className={tab === 'belum' ? 'aktif' : ''} onClick={() => setTab('belum')}>Belum hadir <span className="lencana">{Math.max(0, semua.length - kunj.length)}</span></button>
+        <button className={tab === 'obat' ? 'aktif' : ''} onClick={() => setTab('obat')}>Obat/Vitamin <span className="lencana">{obat.length}</span></button>
       </div>
 
       {tab !== 'obat' && (
-        <div className="cari" style={{ marginBottom: 12 }}>
+        <div className="cari" style={{ marginBottom: 24 }}>
           <Ikon nama="cari" />
           <input className="input" placeholder={tab === 'peserta' ? 'Cari atau daftarkan: nama / NIK' : 'Cari nama / NIK'} value={q} onChange={(e) => setQ(e.target.value)} inputMode="search" />
         </div>
@@ -140,17 +151,17 @@ export default function KegiatanDetail() {
       {tab === 'peserta' && (
         <>
           {hasilCari.length > 0 && (
-            <div className="kartu" style={{ background: 'linear-gradient(180deg, #effafb, #dff3f6)' }}>
-              <h3>Belum terdaftar hari ini</h3>
+            <div className="kartu" style={{ background: 'var(--mint)', boxShadow: 'none' }}>
+              <JudulKartu ikon="tambah" warna="krem">Belum terdaftar hari ini</JudulKartu>
               <div className="daftar">
                 {hasilCari.map((x) => (
                   <div key={x.w.id} className="item" style={{ cursor: 'default' }}>
-                    <div className="avatar">{inisial(x.w.nama)}</div>
+                    <div className={`avatar ${warnaKategori(x.kode)}`}>{inisial(x.w.nama)}</div>
                     <div className="isi">
                       <div className="nama">{x.w.nama}</div>
-                      <div className="sub">{formatUmur(x.w.tanggalLahir, kegiatan.tanggal)} · RT {x.w.rt} · {katMap[x.kode]?.nama}</div>
+                      <div className="sub"><span>{formatUmur(x.w.tanggalLahir, kegiatan.tanggal)} · RT {x.w.rt}</span><ChipKategori kode={x.kode} nama={katMap[x.kode]?.nama} /></div>
                     </div>
-                    <button className="btn utama kecil" onClick={() => daftar(x.w.id!, x.w.nama)}>Daftarkan</button>
+                    <button className="btn utama kecil" onClick={() => daftar(x.w.id!, x.w.nama)}><Ikon nama="tambah" ukuran={18} /> Daftarkan</button>
                   </div>
                 ))}
               </div>
@@ -159,8 +170,8 @@ export default function KegiatanDetail() {
           {kata && hasilCari.length === 0 && daftarPeserta.length === 0 && (
             <div className="kartu">
               <Kosong judul="Tidak ditemukan" teks="Warga belum ada di data.">
-                <Link className="btn utama" style={{ marginTop: 10 }} to={`/warga/baru?nama=${encodeURIComponent(q)}&daftarKe=${kid}`}>
-                  Tambah “{q}” & daftarkan
+                <Link className="btn utama" style={{ marginTop: 14 }} to={`/warga/baru?nama=${encodeURIComponent(q)}&daftarKe=${kid}`}>
+                  <Ikon nama="tambah" ukuran={20} /> Tambah “{q}” & daftarkan
                 </Link>
               </Kosong>
             </div>
@@ -189,12 +200,12 @@ export default function KegiatanDetail() {
             <div className="daftar">
               {belumHadir.slice(0, 100).map((x) => (
                 <div key={x.w.id} className="item" style={{ cursor: 'default' }}>
-                  <div className="avatar">{inisial(x.w.nama)}</div>
+                  <div className={`avatar ${warnaKategori(x.kode)}`}>{inisial(x.w.nama)}</div>
                   <div className="isi">
                     <div className="nama">{x.w.nama}</div>
-                    <div className="sub">{formatUmur(x.w.tanggalLahir, kegiatan.tanggal)} · RT {x.w.rt} · {katMap[x.kode]?.nama}</div>
+                    <div className="sub"><span>{formatUmur(x.w.tanggalLahir, kegiatan.tanggal)} · RT {x.w.rt}</span><ChipKategori kode={x.kode} nama={katMap[x.kode]?.nama} /></div>
                   </div>
-                  <button className="btn kecil" onClick={() => daftar(x.w.id!, x.w.nama)}>Daftarkan</button>
+                  <button className="btn kecil" onClick={() => daftar(x.w.id!, x.w.nama)}><Ikon nama="tambah" ukuran={18} /> Daftarkan</button>
                 </div>
               ))}
               {belumHadir.length > 100 && <p className="petunjuk">Menampilkan 100 pertama.</p>}
@@ -217,6 +228,7 @@ export default function KegiatanDetail() {
                 const x = wargaMap.get(o.wargaId)
                 return (
                   <div key={o.id} className="item" style={{ cursor: 'default' }}>
+                    {x && <div className={`avatar ${warnaKategori(x.kode)}`}>{inisial(x.w.nama)}</div>}
                     <div className="isi">
                       <div className="nama">{x?.w.nama}</div>
                       <div className="sub"><Chip warna="biru">{o.jenis}</Chip><span>{o.keterangan}</span></div>
@@ -232,7 +244,7 @@ export default function KegiatanDetail() {
 
       {isAdmin && (
         <div style={{ marginTop: 28 }}>
-          <button className="btn bahaya kecil" onClick={() => setHapus(true)}>Hapus kegiatan ini</button>
+          <button className="btn bahaya kecil" onClick={() => setHapus(true)}><Ikon nama="arsip" ukuran={18} /> Hapus kegiatan ini</button>
         </div>
       )}
 
@@ -309,7 +321,7 @@ function FormObat({
   }
 
   return (
-    <Sheet judul="Catat pemberian" onTutup={onTutup}>
+    <Sheet judul="Catat pemberian" sub="Obat cacing atau vitamin" ikon="suntik" onTutup={onTutup}>
       <Field label="Jenis">
         <select className="input" value={jenis} onChange={(e) => { setJenis(e.target.value); setKet(e.target.value.toLowerCase().includes('vitamin') ? 'Merah' : 'Diterima langsung') }}>
           {jenisObat.map((j) => <option key={j}>{j}</option>)}
@@ -317,7 +329,7 @@ function FormObat({
       </Field>
       <div className="field">
         <span className="lbl">Keterangan</span>
-        <div className="tab" style={{ marginBottom: 0 }}>
+        <div className="tab krem" style={{ marginBottom: 0 }}>
           {pilihanKet.map((o) => <button key={o} className={ket === o ? 'aktif' : ''} onClick={() => setKet(o)}>{o}</button>)}
         </div>
       </div>
@@ -326,8 +338,8 @@ function FormObat({
       </Field>
       <div className="daftar" style={{ maxHeight: '36dvh', overflowY: 'auto' }}>
         {daftar.map((x) => (
-          <button key={x.w.id} className="item" onClick={() => toggle(x.w.id!)} style={dipilih.has(x.w.id!) ? { borderColor: 'var(--h)', background: 'linear-gradient(180deg, #effafb, #dff3f6)' } : undefined}>
-            <div className="avatar">{dipilih.has(x.w.id!) ? '✓' : inisial(x.w.nama)}</div>
+          <button key={x.w.id} className="item" onClick={() => toggle(x.w.id!)} style={dipilih.has(x.w.id!) ? { background: 'var(--mint)', boxShadow: 'inset 0 0 0 2px var(--hijau-segar)' } : { boxShadow: 'inset 0 0 0 1.5px var(--garis)' }}>
+            <div className={`avatar ${dipilih.has(x.w.id!) ? '' : 'krem'}`}>{dipilih.has(x.w.id!) ? <Ikon nama="centang" ukuran={22} tebal={2.6} /> : inisial(x.w.nama)}</div>
             <div className="isi">
               <div className="nama">{x.w.nama}</div>
               <div className="sub">{x.w.jk} · RT {x.w.rt}</div>

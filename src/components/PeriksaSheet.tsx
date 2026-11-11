@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { formatUmur, tglId } from '../lib/age'
 import { db, NAMA_TAHAP, URUTAN_TAHAP, type Tahap, type Kegiatan, type Kunjungan, type Pemeriksaan, type Warga } from '../lib/db'
 import {
@@ -15,7 +15,7 @@ import {
 } from '../lib/health'
 import { usePengaturan } from '../lib/hooks'
 import { simpanPemeriksaan } from '../lib/layanan'
-import { Chip, Field, Sheet, useToast } from './ui'
+import { Chip, Field, Ikon, Sheet, useToast } from './ui'
 
 interface Props {
   kegiatan: Kegiatan
@@ -102,75 +102,75 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
   }
 
   const kolBalita = kode === 'balita'
+  const isian = (label: string, k: keyof typeof galat, nilai: string, ubah: (s: string) => void, satuan: string, mode: 'decimal' | 'numeric' = 'decimal', fokus = false) => (
+    <Field label={label} galat={galat[k]}>
+      <div className="satuan">
+        <input className={kelas(k)} inputMode={mode} value={nilai} onChange={(e) => ubah(e.target.value)} autoFocus={fokus} />
+        <span>{satuan}</span>
+      </div>
+    </Field>
+  )
+  const ada1 = imt !== undefined || perut || td || v.gulaDarah !== undefined || v.kolesterol !== undefined || v.asamUrat !== undefined
+  const ok = (teks: ReactNode) => <Chip warna="hijau"><Ikon nama="centang" ukuran={14} tebal={2.6} /> {teks}</Chip>
+  const awas = (teks: ReactNode) => <Chip warna="merah"><Ikon nama="peringatan" ukuran={14} /> {teks}</Chip>
 
   return (
-    <Sheet judul={`${kunjungan.noAntrean}. ${warga.nama}`} onTutup={onTutup}>
-      <p className="redup" style={{ marginTop: -6 }}>
-        {warga.jk === 'L' ? 'Laki-laki' : 'Perempuan'} · {formatUmur(warga.tanggalLahir, kegiatan.tanggal)} · RT {warga.rt}
-      </p>
+    <Sheet
+      judul={`No. ${kunjungan.noAntrean} · ${warga.nama}`}
+      sub={`${warga.jk === 'L' ? 'Laki-laki' : 'Perempuan'} · ${formatUmur(warga.tanggalLahir, kegiatan.tanggal)} · RT ${warga.rt}`}
+      ikon="timbangan"
+      lebar
+      onTutup={onTutup}
+    >
       {lalu && (
         <div className="banner info kecil">
-          Terakhir ({tglId(lalu.tanggal)}): BB {angkaId(lalu.bb) || '-'} kg · TB {angkaId(lalu.tb, 0) || '-'} cm
-          {lalu.lingkarPerut ? ` · L. perut ${angkaId(lalu.lingkarPerut, 0)} cm` : ''}
+          <Ikon nama="riwayat" ukuran={20} />
+          <span>
+            Terakhir ({tglId(lalu.tanggal)}): BB {angkaId(lalu.bb) || '-'} kg · TB {angkaId(lalu.tb, 0) || '-'} cm
+            {lalu.lingkarPerut ? ` · L. perut ${angkaId(lalu.lingkarPerut, 0)} cm` : ''}
+          </span>
         </div>
       )}
 
       <div className="grid2">
-        <Field label="Berat badan (kg)" galat={galat.bb}>
-          <input className={kelas('bb')} inputMode="decimal" value={bb} onChange={(e) => setBb(e.target.value)} autoFocus />
-        </Field>
-        <Field label={kolBalita ? 'Panjang/tinggi (cm)' : 'Tinggi badan (cm)'} galat={galat.tb}>
-          <input className={kelas('tb')} inputMode="decimal" value={tb} onChange={(e) => setTb(e.target.value)} />
-        </Field>
-        <Field label="LILA (cm)" galat={galat.lila}>
-          <input className={kelas('lila')} inputMode="decimal" value={lila} onChange={(e) => setLila(e.target.value)} />
-        </Field>
-        {!kolBalita && (
-          <Field label="Lingkar perut (cm)" galat={galat.lingkarPerut}>
-            <input className={kelas('lingkarPerut')} inputMode="decimal" value={lp} onChange={(e) => setLp(e.target.value)} />
-          </Field>
-        )}
+        {isian('Berat badan', 'bb', bb, setBb, 'kg', 'decimal', true)}
+        {isian(kolBalita ? 'Panjang/tinggi badan' : 'Tinggi badan', 'tb', tb, setTb, 'cm')}
+        {isian('LILA', 'lila', lila, setLila, 'cm')}
+        {!kolBalita && isian('Lingkar perut', 'lingkarPerut', lp, setLp, 'cm')}
       </div>
 
       {dewasa && (
         <>
           <div className="grid2">
-            <Field label="Tensi atas (sistol)" galat={galat.sistol}>
-              <input className={kelas('sistol')} inputMode="numeric" value={sis} onChange={(e) => setSis(e.target.value)} />
-            </Field>
-            <Field label="Tensi bawah (diastol)" galat={galat.diastol}>
-              <input className={kelas('diastol')} inputMode="numeric" value={dia} onChange={(e) => setDia(e.target.value)} />
-            </Field>
+            {isian('Tensi atas (sistol)', 'sistol', sis, setSis, 'mmHg', 'numeric')}
+            {isian('Tensi bawah (diastol)', 'diastol', dia, setDia, 'mmHg', 'numeric')}
           </div>
-          <button type="button" className="btn kecil" style={{ marginBottom: 12 }} onClick={() => setLanjut(!lanjut)}>
-            {lanjut ? 'Sembunyikan' : 'Tambah'} gula darah, kolesterol, asam urat
+          <button type="button" className="btn putus penuh kecil" style={{ marginBottom: 16 }} onClick={() => setLanjut(!lanjut)}>
+            <Ikon nama={lanjut ? 'tutup' : 'tambah'} ukuran={18} /> {lanjut ? 'Sembunyikan' : 'Tambah'} gula darah, kolesterol, asam urat
           </button>
           {lanjut && (
             <div className="grid3">
-              <Field label="Gula (mg/dl)" galat={galat.gulaDarah}>
-                <input className={kelas('gulaDarah')} inputMode="numeric" value={gula} onChange={(e) => setGula(e.target.value)} />
-              </Field>
-              <Field label="Kolesterol" galat={galat.kolesterol}>
-                <input className={kelas('kolesterol')} inputMode="numeric" value={kol} onChange={(e) => setKol(e.target.value)} />
-              </Field>
-              <Field label="Asam urat" galat={galat.asamUrat}>
-                <input className={kelas('asamUrat')} inputMode="decimal" value={au} onChange={(e) => setAu(e.target.value)} />
-              </Field>
+              {isian('Gula darah', 'gulaDarah', gula, setGula, 'mg/dl', 'numeric')}
+              {isian('Kolesterol', 'kolesterol', kol, setKol, 'mg/dl', 'numeric')}
+              {isian('Asam urat', 'asamUrat', au, setAu, 'mg/dl')}
             </div>
           )}
         </>
       )}
 
-      <div className="hasil-hitung" aria-live="polite">
-        {imt !== undefined && (
-          <Chip warna={gizi === 'Normal' ? 'hijau' : 'merah'}>IMT {angkaId(imt)} · {gizi}</Chip>
-        )}
-        {perut && <Chip warna="merah">Lingkar perut berisiko</Chip>}
-        {td && <Chip warna="merah">Tensi berisiko (T)</Chip>}
-        {v.gulaDarah !== undefined && <Chip warna={ketGula(v.gulaDarah, p.ambang) === 'Tinggi' ? 'merah' : 'hijau'}>Gula {ketGula(v.gulaDarah, p.ambang)}</Chip>}
-        {v.kolesterol !== undefined && <Chip warna={ketKolesterol(v.kolesterol, p.ambang) === 'Tinggi' ? 'merah' : 'hijau'}>Kolesterol {ketKolesterol(v.kolesterol, p.ambang)}</Chip>}
-        {v.asamUrat !== undefined && <Chip warna={ketAsamUrat(v.asamUrat, warga.jk, p.ambang) === 'Tinggi' ? 'merah' : 'hijau'}>Asam urat {ketAsamUrat(v.asamUrat, warga.jk, p.ambang)}</Chip>}
-      </div>
+      {ada1 && (
+        <div className="hasil-otomatis" aria-live="polite">
+          <p>HASIL OTOMATIS</p>
+          <div className="hasil-hitung">
+            {imt !== undefined && (gizi === 'Normal' ? ok(`IMT ${angkaId(imt)} · ${gizi}`) : awas(`IMT ${angkaId(imt)} · ${gizi}`))}
+            {perut && awas('Lingkar perut berisiko')}
+            {td ? awas('Tensi berisiko (T)') : v.sistol !== undefined && v.diastol !== undefined && ok('Tensi normal')}
+            {v.gulaDarah !== undefined && (ketGula(v.gulaDarah, p.ambang) === 'Tinggi' ? awas : ok)(`Gula ${ketGula(v.gulaDarah, p.ambang)}`)}
+            {v.kolesterol !== undefined && (ketKolesterol(v.kolesterol, p.ambang) === 'Tinggi' ? awas : ok)(`Kolesterol ${ketKolesterol(v.kolesterol, p.ambang)}`)}
+            {v.asamUrat !== undefined && (ketAsamUrat(v.asamUrat, warga.jk, p.ambang) === 'Tinggi' ? awas : ok)(`Asam urat ${ketAsamUrat(v.asamUrat, warga.jk, p.ambang)}`)}
+          </div>
+        </div>
+      )}
 
       <Field label="Topik penyuluhan (opsional)">
         <input className="input" value={penyuluhan} onChange={(e) => setPenyuluhan(e.target.value)} />
@@ -184,9 +184,9 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
 
       <div className="field">
         <span className="lbl">Tahap layanan</span>
-        <div className="tab" style={{ marginBottom: 0 }}>
+        <div className="tab krem" style={{ marginBottom: 0 }}>
           {URUTAN_TAHAP.map((t) => (
-            <button key={t} type="button" className={tahap === t ? 'aktif' : ''} onClick={() => setTahap(t)} style={{ fontSize: 13 }}>
+            <button key={t} type="button" className={tahap === t ? 'aktif' : ''} onClick={() => setTahap(t)} style={{ fontSize: 14.5 }}>
               {NAMA_TAHAP[t]}
             </button>
           ))}
@@ -199,7 +199,7 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
         </button>
         {onBerikutnya && (
           <button className="btn utama" onClick={() => simpan({ berikutnya: true })}>
-            Simpan & berikutnya
+            Simpan & berikutnya <Ikon nama="kanan" ukuran={18} />
           </button>
         )}
         {!onBerikutnya && (

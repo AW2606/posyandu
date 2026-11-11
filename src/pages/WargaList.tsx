@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Chip, Ikon, Kosong, inisial } from '../components/ui'
+import { Chip, ChipKategori, Ikon, KepalaHalaman, Kosong, hexKategori, inisial, warnaKategori } from '../components/ui'
 import { formatUmur, todayISO, tglId } from '../lib/age'
 import { useAuth } from '../lib/auth'
 import { unduhTeks } from '../lib/csv'
@@ -58,16 +58,30 @@ export default function WargaList() {
 
   const toggle = (k: Penanda) => setPenanda((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]))
 
+  const katUrut = [...kategori].sort((a, b) => a.urutan - b.urutan)
+  const nHamil = semua.filter((x) => x.hamil).length
+
   return (
     <>
-      <div className="judul-halaman">
-        <h2>Warga & Sasaran</h2>
-        <Link className="btn utama" to="/warga/baru">
-          <Ikon nama="tambah" ukuran={20} /> Tambah
+      <KepalaHalaman label="Data sasaran" judul="Warga & Sasaran" sub="Cari warga, lihat kategori, dan buka riwayat pemeriksaannya.">
+        <Link className="btn ajakan" to="/warga/baru">
+          <Ikon nama="tambah" ukuran={20} /> Tambah warga
         </Link>
-      </div>
+        {hasil.length > 0 && (
+          <button className="btn" onClick={ekspor}><Ikon nama="unduh" ukuran={20} /> Unduh CSV</button>
+        )}
+      </KepalaHalaman>
 
-      <div className="cari" style={{ marginBottom: 10 }}>
+      {semua.length > 0 && (
+        <div className="grid4" style={{ marginBottom: 24 }}>
+          <div className="stat-datar mint"><span className="petak-stat"><Ikon nama="warga" ukuran={22} /></span><div><b>{semua.length}</b><span>Total sasaran</span></div></div>
+          <div className="stat-datar kuning"><span className="petak-stat"><Ikon nama="bayi" ukuran={22} /></span><div><b>{semua.filter((x) => x.kode === 'balita').length}</b><span>Balita</span></div></div>
+          <div className="stat-datar koral"><span className="petak-stat"><Ikon nama="hati" ukuran={22} /></span><div><b>{nHamil}</b><span>Ibu hamil</span></div></div>
+          <div className="stat-datar biru"><span className="petak-stat"><Ikon nama="orang" ukuran={22} /></span><div><b>{semua.filter((x) => x.kode === 'lansia').length}</b><span>Lansia</span></div></div>
+        </div>
+      )}
+
+      <div className="cari" style={{ marginBottom: 20 }}>
         <Ikon nama="cari" />
         <input className="input" placeholder="Cari nama atau NIK" value={q} onChange={(e) => setQ(e.target.value)} inputMode="search" />
       </div>
@@ -76,8 +90,9 @@ export default function WargaList() {
         <button className={`pil ${kat === 'semua' ? 'aktif' : ''}`} onClick={() => setKat('semua')}>
           Semua<small>{hitungKat.semua ?? 0}</small>
         </button>
-        {[...kategori].sort((a, b) => a.urutan - b.urutan).map((k) => (
+        {katUrut.map((k, i) => (
           <button key={k.kode} className={`pil ${kat === k.kode ? 'aktif' : ''}`} onClick={() => setKat(k.kode)}>
+            <i className="titik-warna" style={{ background: hexKategori(k.kode, i) }} />
             {k.nama}<small>{hitungKat[k.kode] ?? 0}</small>
           </button>
         ))}
@@ -88,25 +103,22 @@ export default function WargaList() {
           <button key={r} className={`pil ${rt === r ? 'aktif' : ''}`} onClick={() => setRt(r)}>RT {r}</button>
         ))}
         <button className={`pil ${lanjut || penanda.length ? 'aktif' : ''}`} onClick={() => setLanjut(!lanjut)}>
-          Penanda{penanda.length ? ` (${penanda.length})` : ''}
+          <i className="titik-warna" style={{ background: '#B93A28' }} />
+          Penanda risiko{penanda.length ? <small>{penanda.length}</small> : null}
         </button>
       </div>
       {lanjut && (
         <div className="filter-baris" style={{ flexWrap: 'wrap' }}>
           {PENANDA.map((x) => (
             <button key={x.k} className={`pil ${penanda.includes(x.k) ? 'aktif' : ''}`} onClick={() => toggle(x.k)}>
+              {penanda.includes(x.k) && <Ikon nama="centang" ukuran={16} tebal={2.6} />}
               {x.label}
             </button>
           ))}
         </div>
       )}
 
-      <div className="baris" style={{ justifyContent: 'space-between', margin: '4px 0 10px' }}>
-        <span className="redup">{hasil.length} orang</span>
-        {hasil.length > 0 && (
-          <button className="btn kecil" onClick={ekspor}>Unduh CSV</button>
-        )}
-      </div>
+      <p className="redup" style={{ margin: '14px 0 16px', fontWeight: 600, fontSize: 15 }}>Menampilkan {hasil.length} orang · urut nama</p>
 
       {semua.length === 0 ? (
         <div className="kartu">
@@ -115,8 +127,8 @@ export default function WargaList() {
             teks={isAdmin ? 'Impor dari berkas CSV, tambah satu per satu, atau muat data contoh untuk mencoba.' : 'Tambahkan warga satu per satu dengan tombol Tambah.'}
           >
             {isAdmin && (
-              <div className="baris" style={{ justifyContent: 'center', marginTop: 12 }}>
-                <Link className="btn utama" to="/warga/impor">Impor CSV</Link>
+              <div className="baris" style={{ justifyContent: 'center', marginTop: 16 }}>
+                <Link className="btn utama" to="/warga/impor"><Ikon nama="unggah" ukuran={20} /> Impor CSV</Link>
                 <Link className="btn" to="/pengaturan">Muat data contoh</Link>
               </div>
             )}
@@ -125,28 +137,30 @@ export default function WargaList() {
       ) : hasil.length === 0 ? (
         <Kosong judul="Tidak ada yang cocok" teks="Coba ubah kata kunci atau filter." />
       ) : (
-        <div className="daftar">
-          {hasil.slice(0, 200).map((x) => (
-            <Link key={x.w.id} to={`/warga/${x.w.id}`} className="item">
-              <div className="avatar">{inisial(x.w.nama)}</div>
-              <div className="isi">
-                <div className="nama">{x.w.nama}</div>
-                <div className="sub">
-                  <span>{x.w.jk === 'L' ? 'L' : 'P'} · {formatUmur(x.w.tanggalLahir, ref)} · RT {x.w.rt}</span>
-                  <Chip warna="biru">{kategori.find((k) => k.kode === x.kode)?.nama}</Chip>
-                  {x.hamil && <Chip warna="kuning">Hamil</Chip>}
-                  {x.menyusui && <Chip warna="kuning">Menyusui</Chip>}
-                  {x.tinggi && <Chip warna="merah">T</Chip>}
-                  {x.perutRisiko && <Chip warna="merah">Perut</Chip>}
-                  {x.gizi && x.gizi !== 'Normal' && <Chip warna="merah">{x.gizi}</Chip>}
-                  {!x.w.nik && <Chip warna="abu">Tanpa NIK</Chip>}
+        <>
+          <div className="daftar grid">
+            {hasil.slice(0, 200).map((x) => (
+              <Link key={x.w.id} to={`/warga/${x.w.id}`} className="item">
+                <div className={`avatar ${warnaKategori(x.kode)}`}>{inisial(x.w.nama)}</div>
+                <div className="isi">
+                  <div className="nama">{x.w.nama}</div>
+                  <div className="sub">
+                    <span>{x.w.jk === 'L' ? 'L' : 'P'} · {formatUmur(x.w.tanggalLahir, ref)} · RT {x.w.rt}</span>
+                    <ChipKategori kode={x.kode} nama={kategori.find((k) => k.kode === x.kode)?.nama} />
+                    {x.hamil && <Chip warna="koral">Hamil</Chip>}
+                    {x.menyusui && <Chip warna="koral">Menyusui</Chip>}
+                    {x.tinggi && <Chip warna="merah">Tensi tinggi</Chip>}
+                    {x.perutRisiko && <Chip warna="merah">Lingkar perut</Chip>}
+                    {x.gizi && x.gizi !== 'Normal' && <Chip warna="merah">Gizi {x.gizi.toLowerCase()}</Chip>}
+                    {!x.w.nik && <Chip warna="abu">Tanpa NIK</Chip>}
+                  </div>
                 </div>
-              </div>
-              <Ikon nama="panah" ukuran={18} />
-            </Link>
-          ))}
+                <span className="btn-ikon"><Ikon nama="panah" ukuran={18} /></span>
+              </Link>
+            ))}
+          </div>
           {hasil.length > 200 && <p className="petunjuk">Menampilkan 200 pertama. Persempit dengan pencarian atau filter.</p>}
-        </div>
+        </>
       )}
     </>
   )

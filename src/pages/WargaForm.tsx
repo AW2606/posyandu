@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Field, useToast } from '../components/ui'
+import fotoTips from '../assets/foto/ibu-bayi-2.jpg'
+import { Bangau, Field, Ikon, KepalaHalaman, useToast } from '../components/ui'
 import { formatUmur, todayISO } from '../lib/age'
 import { validasiNIK } from '../lib/csv'
 import { catat, db, type Warga } from '../lib/db'
@@ -78,51 +79,86 @@ export default function WargaForm() {
     }
   }
 
+  const judul = id ? 'Ubah data warga' : daftarKe ? 'Warga baru & daftarkan' : 'Tambah warga'
+
   return (
     <form onSubmit={kirim}>
-      <div className="judul-halaman">
-        <h2>{id ? 'Ubah data warga' : daftarKe ? 'Warga baru & daftarkan' : 'Tambah warga'}</h2>
-      </div>
-      <div className="kartu">
-        <Field label="Nama lengkap" galat={galat.nama}>
-          <input className={`input ${galat.nama ? 'salah' : ''}`} value={f.nama} onChange={(e) => set('nama', e.target.value)} autoComplete="off" autoFocus={!id} />
-        </Field>
-        <Field label="Tanggal lahir" galat={galat.tanggalLahir} petunjuk={f.tanggalLahir ? `${formatUmur(f.tanggalLahir, todayISO())} · ${kat?.nama ?? ''}` : undefined}>
-          <input className={`input ${galat.tanggalLahir ? 'salah' : ''}`} type="date" value={f.tanggalLahir} onChange={(e) => set('tanggalLahir', e.target.value)} />
-        </Field>
-        <div className="field">
-          <span className="lbl">Jenis kelamin</span>
-          <div className="tab" style={{ marginBottom: 0 }}>
-            <button type="button" className={f.jk === 'L' ? 'aktif' : ''} onClick={() => set('jk', 'L')}>Laki-laki</button>
-            <button type="button" className={f.jk === 'P' ? 'aktif' : ''} onClick={() => set('jk', 'P')}>Perempuan</button>
+      <KepalaHalaman
+        kembali={{ onClick: () => nav(-1), label: id ? 'Data warga' : daftarKe ? 'Meja layanan' : 'Warga' }}
+        label="Data sasaran"
+        judul={judul}
+        sub="Isi data sesuai KTP atau Kartu Keluarga."
+      />
+      <div className="dua-kolom">
+        <div className="kartu">
+          <h3 className="bagian-form"><span>1</span> Data diri</h3>
+          <div className="grid2 tumpuk">
+            <Field label="Nama lengkap" galat={galat.nama}>
+              <input className={`input ${galat.nama ? 'salah' : ''}`} value={f.nama} onChange={(e) => set('nama', e.target.value)} autoComplete="off" autoFocus={!id} />
+            </Field>
+            <Field label="Tanggal lahir" galat={galat.tanggalLahir} petunjuk={f.tanggalLahir ? `Umur ${formatUmur(f.tanggalLahir, todayISO())}${kat ? ` · otomatis masuk ${kat.nama}` : ''}` : undefined}>
+              <input className={`input ${galat.tanggalLahir ? 'salah' : ''}`} type="date" value={f.tanggalLahir} onChange={(e) => set('tanggalLahir', e.target.value)} />
+            </Field>
+          </div>
+          <div className="field">
+            <span className="lbl">Jenis kelamin</span>
+            <div className="pilih-kartu" role="radiogroup" aria-label="Jenis kelamin">
+              {(['L', 'P'] as const).map((j) => (
+                <button key={j} type="button" role="radio" aria-checked={f.jk === j} className={f.jk === j ? 'aktif' : ''} onClick={() => set('jk', j)}>
+                  <i>{f.jk === j && <Ikon nama="centang" ukuran={14} tebal={3} />}</i>
+                  {j === 'L' ? 'Laki-laki' : 'Perempuan'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <h3 className="bagian-form"><span>2</span> Alamat & keluarga</h3>
+          <div className="grid2 tumpuk">
+            <Field label="RT">
+              <select className="input" value={f.rt} onChange={(e) => set('rt', e.target.value)}>
+                {p.rtDaftar.map((r) => <option key={r} value={r}>RT {r}</option>)}
+              </select>
+            </Field>
+            <Field label="Dusun">
+              <input className="input" value={f.dusun} onChange={(e) => set('dusun', e.target.value)} />
+            </Field>
+            <Field label="Nama orang tua / wali" petunjuk="Untuk balita dan anak.">
+              <input className="input" value={f.namaOrtu} onChange={(e) => set('namaOrtu', e.target.value)} />
+            </Field>
+            <Field label="Alamat singkat (opsional)">
+              <input className="input" placeholder="mis. Perum. BW Blok C" value={f.alamat} onChange={(e) => set('alamat', e.target.value)} />
+            </Field>
+          </div>
+
+          <h3 className="bagian-form"><span>3</span> Nomor identitas</h3>
+          <div className="grid2 tumpuk">
+            <Field label="NIK (16 digit)" galat={galat.nik} petunjuk="Boleh dikosongkan jika belum punya NIK.">
+              <input className={`input ${galat.nik ? 'salah' : ''}`} inputMode="numeric" maxLength={16} value={f.nik} onChange={(e) => set('nik', e.target.value.replace(/\D/g, ''))} />
+            </Field>
+            <Field label="Nomor KK (16 digit)" galat={galat.noKK}>
+              <input className={`input ${galat.noKK ? 'salah' : ''}`} inputMode="numeric" maxLength={16} value={f.noKK} onChange={(e) => set('noKK', e.target.value.replace(/\D/g, ''))} />
+            </Field>
+          </div>
+
+          <div className="aksi-form">
+            <button type="button" className="btn" onClick={() => nav(-1)}>Batal</button>
+            <button className="btn utama" disabled={simpan}><Ikon nama="centang" ukuran={20} tebal={2.4} /> {id ? 'Simpan perubahan' : 'Simpan warga'}</button>
           </div>
         </div>
-        <div className="grid2">
-          <Field label="RT">
-            <select className="input" value={f.rt} onChange={(e) => set('rt', e.target.value)}>
-              {p.rtDaftar.map((r) => <option key={r} value={r}>RT {r}</option>)}
-            </select>
-          </Field>
-          <Field label="Dusun">
-            <input className="input" value={f.dusun} onChange={(e) => set('dusun', e.target.value)} />
-          </Field>
-        </div>
-        <Field label="NIK (16 digit)" galat={galat.nik} petunjuk="Boleh dikosongkan jika belum punya NIK.">
-          <input className={`input ${galat.nik ? 'salah' : ''}`} inputMode="numeric" maxLength={16} value={f.nik} onChange={(e) => set('nik', e.target.value.replace(/\D/g, ''))} />
-        </Field>
-        <Field label="Nomor KK (16 digit)" galat={galat.noKK}>
-          <input className={`input ${galat.noKK ? 'salah' : ''}`} inputMode="numeric" maxLength={16} value={f.noKK} onChange={(e) => set('noKK', e.target.value.replace(/\D/g, ''))} />
-        </Field>
-        <Field label="Nama orang tua / wali" petunjuk="Untuk balita dan anak.">
-          <input className="input" value={f.namaOrtu} onChange={(e) => set('namaOrtu', e.target.value)} />
-        </Field>
-        <Field label="Alamat singkat (opsional)">
-          <input className="input" value={f.alamat} onChange={(e) => set('alamat', e.target.value)} />
-        </Field>
-      </div>
-      <div className="aksi-bawah">
-        <button type="button" className="btn" onClick={() => nav(-1)}>Batal</button>
-        <button className="btn utama" disabled={simpan}>Simpan</button>
+
+        <aside className="no-print">
+          <div className="kartu kartu-tips">
+            <Bangau className="tips-bangau" kaki="#E09A1B" />
+            <span className="petak-ikon" style={{ background: 'var(--amber)', color: '#fff', width: 48, height: 48 }}><Ikon nama="info" ukuran={24} /></span>
+            <h3>Tips mengisi</h3>
+            <ul>
+              <li><Ikon nama="centang" ukuran={14} tebal={3} /> Salin nama persis seperti di KTP atau KK.</li>
+              <li><Ikon nama="centang" ukuran={14} tebal={3} /> NIK boleh dikosongkan bila belum punya.</li>
+              <li><Ikon nama="centang" ukuran={14} tebal={3} /> Kategori umur dihitung otomatis dari tanggal lahir.</li>
+            </ul>
+          </div>
+          <img className="foto-samping" src={fotoTips} alt="Kader memeriksa catatan kesehatan bersama ibu dan anak" />
+        </aside>
       </div>
     </form>
   )

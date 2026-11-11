@@ -1,14 +1,15 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Chip, Field, Konfirmasi, Sheet, useToast } from '../components/ui'
+import { Chip, Field, Ikon, JudulKartu, KepalaHalaman, Konfirmasi, Logo, Sheet, inisial, useToast } from '../components/ui'
 import { FormServer } from '../components/FormServer'
 import { buatUser, gantiPassword, gantiPasswordCloud, useAuth } from '../lib/auth'
 import { buatAkunKader, buatTautan, getKlien, getSinkron, useStatusSinkron, type Profil } from '../lib/cloud'
-import { db, eksporSemua, impor, inisialisasi, simpanPengaturan, type Pengaturan as TPengaturan, type Role } from '../lib/db'
+import { BATAS_AUDIT, db, eksporSemua, impor, inisialisasi, simpanPengaturan, type AuditLog, type Pengaturan as TPengaturan, type Role } from '../lib/db'
 import { unduhTeks } from '../lib/csv'
 import { usePengaturan, useKategori } from '../lib/hooks'
 import { muatDataContoh } from '../lib/seed'
+import { hexKategori } from '../components/ui'
 import { KATEGORI_DEFAULT } from '../lib/age'
 import { AMBANG_DEFAULT } from '../lib/health'
 
@@ -16,22 +17,24 @@ export default function Pengaturan() {
   const { user, isAdmin, cloud } = useAuth()
   return (
     <>
-      <div className="judul-halaman"><h2>Lainnya</h2></div>
-      <KataSandi id={user!.id} />
-      {isAdmin ? (
-        <>
-          <Identitas />
-          <Kategori />
-          <Ambang />
-          <Server />
-          {cloud ? <ProfilCloud /> : <Akun />}
-          <Data />
-          <Audit />
-        </>
-      ) : (
-        <p className="petunjuk">Pengaturan lain hanya bisa diubah Admin.</p>
-      )}
-      <p className="petunjuk" style={{ textAlign: 'center', marginTop: 20 }}>Posyandu Bangau · Portal Kader v0.1 (tahap front end)</p>
+      <KepalaHalaman label="Pengaturan" judul="Lainnya" sub={isAdmin ? 'Kata sandi, identitas Posyandu, akun kader, dan cadangan data.' : 'Ganti kata sandi akun Anda.'} />
+      <div className="kolom-masonry">
+        <KataSandi id={user!.id} />
+        {isAdmin ? (
+          <>
+            {cloud ? <ProfilCloud /> : <Akun />}
+            <Identitas />
+            <Kategori />
+            <Data />
+            <Server />
+            <Ambang />
+            <Audit />
+          </>
+        ) : (
+          <div className="banner info"><Ikon nama="info" ukuran={22} /> Pengaturan lain hanya bisa diubah Admin.</div>
+        )}
+      </div>
+      <p className="kaki-versi"><Logo ukuran={26} /> Posyandu Bangau · Portal Kader v0.1</p>
     </>
   )
 }
@@ -44,7 +47,7 @@ function KataSandi({ id }: { id?: number }) {
   const galat = a && a.length < 6 ? 'Minimal 6 karakter.' : b && a !== b ? 'Kata sandi tidak sama.' : null
   return (
     <div className="kartu">
-      <h3>Ganti kata sandi</h3>
+      <JudulKartu ikon="kunci" warna="kuning">Ganti kata sandi</JudulKartu>
       <Field label="Kata sandi baru" galat={galat}>
         <input className="input" type="password" autoComplete="new-password" value={a} onChange={(e) => setA(e.target.value)} />
       </Field>
@@ -85,7 +88,8 @@ function Identitas() {
   )
   return (
     <div className="kartu">
-      <h3>Identitas, kop, dan penandatangan laporan</h3>
+      <JudulKartu ikon="rumah">Identitas Posyandu</JudulKartu>
+      <p className="petunjuk" style={{ marginTop: -8 }}>Dipakai di kop dan kolom tanda tangan laporan.</p>
       {teks('namaPosyandu', 'Nama Posyandu (baris kop)')}
       <div className="grid2 tumpuk">{teks('dusun', 'Dusun')}{teks('desa', 'Desa')}</div>
       {teks('kecamatan', 'Kecamatan (baris kop)')}
@@ -128,16 +132,17 @@ function Kategori() {
     : null
   return (
     <div className="kartu">
-      <h3>Kategori sasaran dan batas umur</h3>
-      <p className="petunjuk">Umur dalam tahun penuh. Batas bawah termasuk, batas atas tidak. Contoh: Balita 0 sampai 6 berarti 0–5 tahun.</p>
-      {urut.map((c) => {
+      <JudulKartu ikon="warga" warna="koral">Kategori sasaran</JudulKartu>
+      <p className="petunjuk">Umur dalam tahun penuh. Batas bawah termasuk, batas atas tidak. Contoh: Balita 0 sampai 6 berarti 0-5 tahun.</p>
+      {urut.map((c, j) => {
         const i = d.indexOf(c)
         return (
-          <div key={c.kode} className="baris" style={{ marginBottom: 8, flexWrap: 'nowrap' }}>
-            <span style={{ flex: 1, fontWeight: 650 }}>{c.nama}</span>
-            <input className="input" style={{ width: 76 }} inputMode="numeric" aria-label={`${c.nama} dari`} value={c.umurMin} onChange={(e) => ubah(i, 'umurMin', e.target.value)} />
+          <div key={c.kode} className="baris-kategori">
+            <i style={{ background: hexKategori(c.kode, j) }} />
+            <b>{c.nama}</b>
+            <input className="input" inputMode="numeric" aria-label={`${c.nama} dari`} value={c.umurMin} onChange={(e) => ubah(i, 'umurMin', e.target.value)} />
             <span>s/d</span>
-            <input className="input" style={{ width: 76 }} inputMode="numeric" placeholder="∞" aria-label={`${c.nama} sampai`} value={c.umurMax ?? ''} onChange={(e) => ubah(i, 'umurMax', e.target.value)} />
+            <input className="input" inputMode="numeric" placeholder="∞" aria-label={`${c.nama} sampai`} value={c.umurMax ?? ''} onChange={(e) => ubah(i, 'umurMax', e.target.value)} />
           </div>
         )
       })}
@@ -167,7 +172,7 @@ function Ambang() {
   ]
   return (
     <div className="kartu">
-      <h3>Ambang batas pemeriksaan</h3>
+      <JudulKartu ikon="timbangan" warna="biru">Ambang batas pemeriksaan</JudulKartu>
       <p className="petunjuk">Angka bawaan perlu dikonfirmasi ke bidan Puskesmas. Sistem hanya memberi penanda, bukan diagnosis.</p>
       {lab.map(([k, l]) => (
         <Field key={k} label={l}>
@@ -202,13 +207,14 @@ function Akun() {
 
   return (
     <div className="kartu">
-      <h3>Akun pengguna</h3>
+      <JudulKartu ikon="warga" ekor={<button className="btn ajakan kecil" onClick={() => setBaru(true)}><Ikon nama="tambah" ukuran={18} /> Buat akun</button>}>Akun kader</JudulKartu>
       <div className="daftar" style={{ marginBottom: 12 }}>
         {users.map((u) => (
-          <div key={u.id} className="item" style={{ cursor: 'default' }}>
+          <div key={u.id} className="item baris-akun" style={{ cursor: 'default' }}>
+            <div className={`avatar ${u.aktif ? (u.role === 'admin' ? 'biru' : '') : 'krem'}`}>{inisial(u.nama)}</div>
             <div className="isi">
               <div className="nama">{u.nama}</div>
-              <div className="sub"><span>{u.username}</span><Chip warna={u.role === 'admin' ? 'biru' : 'abu'}>{u.role === 'admin' ? 'Admin' : 'Kader'}</Chip>{!u.aktif && <Chip warna="merah">Nonaktif</Chip>}</div>
+              <div className="sub"><span>@{u.username}</span><Chip warna={u.role === 'admin' ? 'biru' : 'mint'}>{u.role === 'admin' ? 'Admin' : 'Kader'}</Chip>{!u.aktif && <Chip warna="merah">Nonaktif</Chip>}</div>
             </div>
             <button className="btn kecil" onClick={() => { setReset(u.id!); setSandi('') }}>Reset</button>
             {u.id !== user?.id && (
@@ -217,10 +223,9 @@ function Akun() {
           </div>
         ))}
       </div>
-      <button className="btn" onClick={() => setBaru(true)}>Tambah akun kader</button>
 
       {baru && (
-        <Sheet judul="Akun baru" onTutup={() => setBaru(false)}>
+        <Sheet judul="Akun baru" sub="Akun untuk kader atau admin" ikon="orang" onTutup={() => setBaru(false)}>
           <Field label="Nama"><input className="input" value={f.nama} onChange={(e) => setF({ ...f, nama: e.target.value })} /></Field>
           <Field label="Nama pengguna"><input className="input" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} /></Field>
           <Field label="Kata sandi awal"><input className="input" type="text" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>
@@ -234,7 +239,7 @@ function Akun() {
         </Sheet>
       )}
       {reset !== null && (
-        <Sheet judul="Reset kata sandi" onTutup={() => setReset(null)}>
+        <Sheet judul="Reset kata sandi" ikon="kunci" onTutup={() => setReset(null)}>
           <Field label="Kata sandi baru"><input className="input" type="text" value={sandi} onChange={(e) => setSandi(e.target.value)} /></Field>
           <div className="aksi-bawah">
             <button className="btn" onClick={() => setReset(null)}>Batal</button>
@@ -263,21 +268,22 @@ function Data() {
 
   return (
     <div className="kartu">
-      <h3>Data dan cadangan</h3>
+      <JudulKartu ikon="basisdata" warna="ungu">Data dan cadangan</JudulKartu>
       <div className="banner info kecil">
+        <Ikon nama="info" ukuran={20} />
         {cloud
           ? 'Data tersinkron ke server bersama dan tetap tersimpan di perangkat ini. Cadangan JSON tetap disarankan.'
           : 'Data tersimpan di browser perangkat ini, belum otomatis tersinkron ke HP lain. Unduh cadangan secara berkala dan simpan di tempat aman.'}
       </div>
       <div className="daftar">
-        <button className="btn penuh" onClick={cadangan}>Unduh cadangan (JSON)</button>
-        <Link className="btn penuh" to="/warga/impor">Impor data warga (CSV)</Link>
+        <button className="btn penuh" onClick={cadangan}><Ikon nama="unduh" ukuran={20} /> Unduh cadangan (JSON)</button>
+        <Link className="btn penuh" to="/warga/impor"><Ikon nama="unggah" ukuran={20} /> Impor data warga (CSV)</Link>
         {cloud ? (
           <p className="petunjuk">Pulihkan cadangan, data contoh, dan hapus massal dimatikan saat terhubung ke server bersama, supaya data nyata tidak tertimpa atau tercampur data uji.</p>
         ) : (
           <>
             <label className="btn penuh" style={{ cursor: 'pointer' }}>
-              Pulihkan dari cadangan
+              <Ikon nama="riwayat" ukuran={20} /> Pulihkan dari cadangan
               <input type="file" accept="application/json,.json" hidden onChange={(e) => pilihPulihkan(e.target.files?.[0])} />
             </label>
             <button className="btn penuh" onClick={() => setKonf('contoh')} disabled={jumlah > 0}>Muat data contoh (fiktif)</button>
@@ -287,7 +293,7 @@ function Data() {
       </div>
 
       {konf === 'contoh' && (
-        <Konfirmasi judul="Muat data contoh?" teks="Menambahkan sekitar 60 warga fiktif dan kegiatan Januari–Oktober 2026 untuk latihan dan uji laporan."
+        <Konfirmasi judul="Muat data contoh?" teks="Menambahkan sekitar 60 warga fiktif dan kegiatan Januari-Oktober 2026 untuk latihan dan uji laporan."
           onYa={async () => { setSibuk(true); const r = await muatDataContoh(); setSibuk(false); setKonf(null); toast(`${r.warga} warga dan ${r.kegiatan} kegiatan contoh dimuat`) }} onBatal={() => setKonf(null)} labelYa={sibuk ? 'Memuat…' : 'Muat'} />
       )}
       {konf === 'hapus' && (
@@ -312,25 +318,64 @@ function Data() {
   )
 }
 
+const PER_HALAMAN_AUDIT = 8
+const WARNA_AKSI: Record<string, 'hijau' | 'biru' | 'merah' | 'kuning' | 'abu'> = {
+  tambah: 'hijau', impor: 'hijau', catat: 'biru', ubah: 'kuning', hapus: 'merah', arsip: 'merah', pulihkan: 'hijau',
+}
+
 function Audit() {
-  const log = useLiveQuery(() => db.audit.orderBy('waktu').reverse().limit(30).toArray()) ?? []
+  const log = useLiveQuery(() => db.audit.orderBy('waktu').reverse().limit(BATAS_AUDIT).toArray()) ?? []
+  const jalur = useRef<HTMLDivElement>(null)
+  const [hal, setHal] = useState(0)
+  const halaman: AuditLog[][] = []
+  for (let i = 0; i < log.length; i += PER_HALAMAN_AUDIT) halaman.push(log.slice(i, i + PER_HALAMAN_AUDIT))
+  const total = halaman.length
+
+  // catatan lama terpangkas atau bertambah: jaga nomor halaman tetap sah
+  useEffect(() => {
+    if (hal > 0 && hal >= total) ke(total - 1)
+  }, [total])
+
+  function ke(i: number) {
+    const el = jalur.current
+    const n = Math.max(0, Math.min(total - 1, i))
+    setHal(n)
+    el?.scrollTo({ left: n * el.clientWidth, behavior: 'smooth' })
+  }
+  function gulir() {
+    const el = jalur.current
+    if (el && el.clientWidth) setHal(Math.round(el.scrollLeft / el.clientWidth))
+  }
+
   return (
     <div className="kartu">
-      <h3>Riwayat perubahan (30 terakhir)</h3>
+      <JudulKartu ikon="riwayat" warna="krem" ekor={<Chip>{log.length}/{BATAS_AUDIT}</Chip>}>Riwayat perubahan</JudulKartu>
+      <p className="petunjuk" style={{ marginTop: -8 }}>Menyimpan {BATAS_AUDIT} perubahan terakhir. Catatan yang lebih lama terhapus otomatis.</p>
       {log.length === 0 ? <p className="redup">Belum ada catatan.</p> : (
-        <div className="tabel-gulir">
-          <table className="tabel">
-            <thead><tr><th>Waktu</th><th>Pengguna</th><th>Aksi</th><th>Keterangan</th></tr></thead>
-            <tbody>
-              {log.map((l) => (
-                <tr key={l.id}>
-                  <td>{new Date(l.waktu).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                  <td>{l.user}</td><td>{l.aksi} {l.entitas}</td><td>{l.detail}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="carousel" ref={jalur} onScroll={gulir} aria-roledescription="carousel" aria-label="Riwayat perubahan">
+            {halaman.map((isi, i) => (
+              <ul key={i} className="carousel-slide" aria-roledescription="slide" aria-label={`Halaman ${i + 1} dari ${total}`}>
+                {isi.map((l) => (
+                  <li key={l.id} className="baris-audit">
+                    <Chip warna={WARNA_AKSI[l.aksi] ?? 'abu'}>{l.aksi}</Chip>
+                    <div>
+                      <b>{l.entitas}{l.detail ? `: ${l.detail}` : ''}</b>
+                      <small>{l.user || 'sistem'} · {new Date(l.waktu).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ))}
+          </div>
+          {total > 1 && (
+            <div className="carousel-kendali">
+              <button type="button" className="btn-ikon" onClick={() => ke(hal - 1)} disabled={hal === 0} aria-label="Halaman sebelumnya"><Ikon nama="kiri" ukuran={18} /></button>
+              <span>Halaman <b>{hal + 1}</b> dari {total}</span>
+              <button type="button" className="btn-ikon" onClick={() => ke(hal + 1)} disabled={hal >= total - 1} aria-label="Halaman berikutnya"><Ikon nama="kanan" ukuran={18} /></button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -343,7 +388,7 @@ function Server() {
   const [konf, setKonf] = useState(false)
   return (
     <div className="kartu">
-      <h3>Server bersama (sinkronisasi)</h3>
+      <JudulKartu ikon="awan" warna="biru" ekor={cloud ? <Chip warna="hijau" titik>Terhubung</Chip> : <Chip titik>Belum terhubung</Chip>}>Server bersama</JudulKartu>
       {!cloud ? (
         <>
           <p className="petunjuk">Hubungkan ke proyek Supabase agar beberapa kader memakai data yang sama dari HP masing-masing. Langkah pembuatan proyek ada di docs/supabase.md.</p>
@@ -351,8 +396,7 @@ function Server() {
         </>
       ) : (
         <>
-          <div className="banner sukses kecil">Terhubung ke server.</div>
-          {st && (
+                    {st && (
             <p className="kecil">
               {st.tunggu} perubahan menunggu dikirim
               {st.terakhir ? ` · sinkron terakhir ${new Date(st.terakhir).toLocaleTimeString('id-ID', { timeStyle: 'short' })}` : ''}
@@ -362,17 +406,17 @@ function Server() {
             </p>
           )}
           <div className="baris">
-            <button className="btn" onClick={async () => { await getSinkron()?.jalankan(); toast('Sinkron selesai') }}>Sinkron sekarang</button>
-            <button className="btn" onClick={() => setKonf(true)}>Unggah semua data perangkat ini</button>
+            <button className="btn lembut kecil" onClick={async () => { await getSinkron()?.jalankan(); toast('Sinkron selesai') }}><Ikon nama="ulang" ukuran={18} /> Sinkron sekarang</button>
+            <button className="btn kecil" onClick={() => setKonf(true)}><Ikon nama="unggah" ukuran={18} /> Unggah semua data perangkat ini</button>
           </div>
           <p className="petunjuk">Gunakan "Unggah semua" hanya di <b>satu</b> perangkat yang sudah berisi data lama, sekali saja, saat pertama menghubungkan. Perangkat lain sebaiknya mulai kosong dan mengambil data dari server.</p>
           <div className="baris" style={{ marginTop: 10 }}>
-            <button className="btn" onClick={async () => {
+            <button className="btn kecil" onClick={async () => {
               const t = buatTautan()
               if (!t) return
               try { await navigator.clipboard.writeText(t); toast('Tautan disalin. Kirim ke kader lewat WhatsApp.') }
               catch { window.prompt('Salin tautan ini lalu kirim ke kader:', t) }
-            }}>Salin tautan untuk HP kader</button>
+            }}><Ikon nama="tautan" ukuran={18} /> Salin tautan untuk HP kader</button>
           </div>
           <p className="petunjuk">Kader cukup membuka tautan itu di HP-nya, menyetujui, lalu masuk dengan akunnya. Tidak perlu mengetik alamat server.</p>
           <details style={{ marginTop: 10 }}>
@@ -423,15 +467,15 @@ function ProfilCloud() {
   }
   return (
     <div className="kartu">
-      <h3>Akun kader</h3>
+      <JudulKartu ikon="warga" ekor={<button className="btn ajakan kecil" onClick={() => setBaru(true)}><Ikon nama="tambah" ukuran={18} /> Buat akun</button>}>Akun kader</JudulKartu>
       {galat && <div className="banner bahaya">{galat}</div>}
-      <button className="btn utama" style={{ marginBottom: 12 }} onClick={() => setBaru(true)}>Buat akun kader</button>
       <div className="daftar">
         {(daftar ?? []).map((p) => (
-          <div key={p.id} className="item" style={{ cursor: 'default', flexWrap: 'wrap' }}>
+          <div key={p.id} className="item baris-akun" style={{ cursor: 'default', flexWrap: 'wrap' }}>
+            <div className={`avatar ${p.aktif ? (p.role === 'admin' ? 'biru' : '') : 'krem'}`}>{inisial(p.nama || p.username)}</div>
             <div className="isi">
               <div className="nama">{p.nama || p.username}</div>
-              <div className="sub"><span>{p.username}</span><Chip warna={p.role === 'admin' ? 'biru' : 'abu'}>{p.role === 'admin' ? 'Admin' : 'Kader'}</Chip>{!p.aktif && <Chip warna="merah">Nonaktif</Chip>}</div>
+              <div className="sub"><span>@{p.username}</span><Chip warna={p.role === 'admin' ? 'biru' : 'mint'}>{p.role === 'admin' ? 'Admin' : 'Kader'}</Chip>{!p.aktif && <Chip warna="merah">Nonaktif</Chip>}</div>
             </div>
             {p.username !== user?.username && (
               <>
@@ -443,7 +487,7 @@ function ProfilCloud() {
         ))}
       </div>
       {baru && (
-        <Sheet judul="Akun baru" onTutup={() => setBaru(false)}>
+        <Sheet judul="Akun baru" sub="Akun untuk kader atau admin" ikon="orang" onTutup={() => setBaru(false)}>
           <Field label="Nama lengkap"><input className="input" value={f.nama} onChange={(e) => setF({ ...f, nama: e.target.value })} /></Field>
           <Field label="Nama pengguna" petunjuk="Dipakai untuk masuk. Huruf kecil, angka, titik, garis bawah, strip."><input className="input" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value.toLowerCase() })} /></Field>
           <Field label="Kata sandi awal" petunjuk="Minimal 6 karakter. Kader bisa menggantinya sendiri di menu Lainnya."><input className="input" type="text" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>

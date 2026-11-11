@@ -1,9 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { perkiraanLahir, tglId, todayISO, umurBulan, usiaHamil } from '../lib/age'
+import { perkiraanLahir, selisihHari, tglId, todayISO, umurBulan, usiaHamil } from '../lib/age'
 import { catat, db, type Warga } from '../lib/db'
 import { usePengaturan } from '../lib/hooks'
-import { Chip, Field, Sheet, useToast } from './ui'
+import { Chip, Cincin, Field, Ikon, JudulKartu, Sheet, useToast } from './ui'
 
 /** Imunisasi dasar: dipakai untuk bayi, lengkap bila semua jenis sudah tercatat. */
 export function KartuImunisasi({ w }: { w: Warga }) {
@@ -32,21 +32,20 @@ export function KartuImunisasi({ w }: { w: Warga }) {
 
   return (
     <div className="kartu">
-      <div className="baris" style={{ justifyContent: 'space-between' }}>
-        <h3 style={{ margin: 0 }}>Imunisasi dasar</h3>
-        <Chip warna={lengkap ? 'hijau' : 'kuning'}>
+      <JudulKartu ikon="suntik" warna="biru" ekor={
+        <Chip warna={lengkap ? 'hijau' : 'kuning'} titik>
           {catatan.length}/{p.imunisasiDasar.length} {lengkap ? 'lengkap' : 'belum lengkap'}
         </Chip>
-      </div>
-      <div className="filter-baris" style={{ flexWrap: 'wrap', margin: '12px 0 0', padding: 0, overflow: 'visible' }}>
+      }>Imunisasi dasar</JudulKartu>
+      <div className="filter-baris" style={{ flexWrap: 'wrap', margin: 0, padding: 0, overflow: 'visible' }}>
         {p.imunisasiDasar.map((j) => (
           <button key={j} className={`pil ${sudah.has(j) ? 'aktif' : ''}`} onClick={() => { setPilih(j); setTgl(sudah.get(j)?.tanggal ?? todayISO()) }}>
-            {sudah.has(j) ? '✓ ' : ''}{j}
+            {sudah.has(j) && <Ikon nama="centang" ukuran={16} tebal={2.6} />}{j}
           </button>
         ))}
       </div>
       {pilih && (
-        <Sheet judul={pilih} onTutup={() => setPilih(null)}>
+        <Sheet judul={pilih} sub="Catat tanggal imunisasi" ikon="suntik" onTutup={() => setPilih(null)}>
           <Field label="Tanggal diberikan" petunjuk={`Umur saat itu: ${umurBulan(w.tanggalLahir, tgl)} bulan`}>
             <input className="input" type="date" value={tgl} max={todayISO()} onChange={(e) => setTgl(e.target.value)} />
           </Field>
@@ -91,37 +90,56 @@ export function KartuKehamilan({ w }: { w: Warga }) {
     toast('Persalinan dicatat')
   }
 
+  const hari = aktif ? Math.max(0, selisihHari(aktif.hpht, ref)) : 0
+  const minggu = Math.floor(hari / 7)
+  const posisi = Math.min(100, (hari / 280) * 100)
+
   return (
-    <div className="kartu">
-      <div className="baris" style={{ justifyContent: 'space-between' }}>
-        <h3 style={{ margin: 0 }}>Buku ibu hamil</h3>
-        {!aktif && <button className="btn kecil utama" onClick={() => setForm({ hpht: '', catatan: '' })}>Kehamilan baru</button>}
-      </div>
+    <div className="kartu kartu-hamil">
+      <JudulKartu ikon="hati" warna="koral" ekor={
+        aktif ? <Chip warna="merah" titik>Aktif</Chip> : <button className="btn kecil utama" onClick={() => setForm({ hpht: '', catatan: '' })}><Ikon nama="tambah" ukuran={18} /> Kehamilan baru</button>
+      }>Buku ibu hamil</JudulKartu>
       {aktif ? (
-        <div style={{ marginTop: 10 }}>
-          <div className="grid2">
-            <div className="stat"><div className="angka" style={{ fontSize: 17, whiteSpace: "nowrap" }}>{usiaHamil(aktif.hpht, ref)}</div><div className="lbl">Usia kehamilan</div></div>
-            <div className="stat"><div className="angka" style={{ fontSize: 17, whiteSpace: "nowrap" }}>{tglId(perkiraanLahir(aktif.hpht))}</div><div className="lbl">Perkiraan lahir</div></div>
+        <div>
+          <div className="hamil-atas">
+            <div className="hamil-cincin">
+              <Cincin persen={posisi} warna="#E46F4C" dasar="#FCE3DC" tebal={11} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <b className="hamil-minggu">Minggu ke-{minggu + 1}</b>
+              <p className="redup" style={{ margin: '4px 0' }}>Usia kehamilan {usiaHamil(aktif.hpht, ref)}</p>
+              <p className="hamil-hpl"><Ikon nama="kalender" ukuran={17} /> Perkiraan lahir {tglId(perkiraanLahir(aktif.hpht))}</p>
+            </div>
+          </div>
+          <div className="trimester" aria-label={`Trimester ${minggu < 13 ? 1 : minggu < 27 ? 2 : 3}`}>
+            <div className="trimester-bar">
+              <i style={{ width: `${posisi}%` }} />
+              <span style={{ left: `${posisi}%` }} />
+            </div>
+            <div className="trimester-label"><span>Trimester 1</span><span>Trimester 2</span><span>Trimester 3</span></div>
           </div>
           <p className="kecil redup">HPHT {tglId(aktif.hpht)}{aktif.catatan ? ` · ${aktif.catatan}` : ''}</p>
           <div className="baris">
-            <button className="btn kecil" onClick={() => setForm({ id: aktif.id, hpht: aktif.hpht, catatan: aktif.catatan })}>Ubah</button>
-            <button className="btn kecil utama" onClick={() => setLahir({ id: aktif.id!, tanggal: ref, tempat: '', diFaskes: true })}>Catat persalinan</button>
+            <button className="btn kecil" onClick={() => setForm({ id: aktif.id, hpht: aktif.hpht, catatan: aktif.catatan })}>Ubah HPHT</button>
+            <button className="btn kecil utama" onClick={() => setLahir({ id: aktif.id!, tanggal: ref, tempat: '', diFaskes: true })}><Ikon nama="bayi" ukuran={18} /> Catat persalinan</button>
           </div>
-          <p className="petunjuk">Hasil timbang dan tensi tiap bulan tampil di Riwayat pemeriksaan di bawah.</p>
+          <p className="petunjuk">Hasil timbang dan tensi tiap bulan tampil di Riwayat pemeriksaan.</p>
         </div>
       ) : daftar.length === 0 ? (
         <p className="redup" style={{ marginBottom: 0 }}>Belum ada data kehamilan.</p>
       ) : null}
       {riwayat.map((k) => (
         <div key={k.id} className="banner info kecil" style={{ marginTop: 10, marginBottom: 0 }}>
-          Persalinan {tglId(k.tanggalLahir)} · {k.tempat || 'tempat tidak dicatat'} ·{' '}
-          {k.diFaskes ? 'di fasilitas kesehatan' : 'bukan di fasilitas kesehatan'}
+          <Ikon nama="bayi" ukuran={20} />
+          <span>
+            Persalinan {tglId(k.tanggalLahir)} · {k.tempat || 'tempat tidak dicatat'} ·{' '}
+            {k.diFaskes ? 'di fasilitas kesehatan' : 'bukan di fasilitas kesehatan'}
+          </span>
         </div>
       ))}
 
       {form && (
-        <Sheet judul={form.id ? 'Ubah kehamilan' : 'Kehamilan baru'} onTutup={() => setForm(null)}>
+        <Sheet judul={form.id ? 'Ubah kehamilan' : 'Kehamilan baru'} sub={w.nama} ikon="hati" onTutup={() => setForm(null)}>
           <Field label="HPHT (hari pertama haid terakhir)" petunjuk="Perkiraan lahir dihitung otomatis.">
             <input className="input" type="date" value={form.hpht} max={ref} onChange={(e) => setForm({ ...form, hpht: e.target.value })} />
           </Field>
@@ -132,11 +150,11 @@ export function KartuKehamilan({ w }: { w: Warga }) {
         </Sheet>
       )}
       {lahir && (
-        <Sheet judul="Catat persalinan" onTutup={() => setLahir(null)}>
+        <Sheet judul="Catat persalinan" sub={w.nama} ikon="bayi" onTutup={() => setLahir(null)}>
           <Field label="Tanggal persalinan"><input className="input" type="date" value={lahir.tanggal} max={ref} onChange={(e) => setLahir({ ...lahir, tanggal: e.target.value })} /></Field>
           <Field label="Tempat persalinan"><input className="input" value={lahir.tempat} onChange={(e) => setLahir({ ...lahir, tempat: e.target.value })} placeholder="mis. Puskesmas, klinik bidan, rumah" /></Field>
-          <label className="baris" style={{ margin: '4px 0 14px' }}>
-            <input type="checkbox" checked={lahir.diFaskes} onChange={(e) => setLahir({ ...lahir, diFaskes: e.target.checked })} style={{ width: 22, height: 22 }} />
+          <label className="kotak-centang">
+            <input type="checkbox" checked={lahir.diFaskes} onChange={(e) => setLahir({ ...lahir, diFaskes: e.target.checked })} />
             Dilakukan di fasilitas kesehatan
           </label>
           <div className="aksi-bawah"><button className="btn" onClick={() => setLahir(null)}>Batal</button><button className="btn utama" onClick={simpanLahir}>Simpan</button></div>

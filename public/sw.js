@@ -1,7 +1,7 @@
 // Cache sederhana agar aplikasi bisa dibuka tanpa internet setelah kunjungan pertama.
-const CACHE = 'posyandu-v2'
+const CACHE = 'posyandu-v4'
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './icon-64.png', './icon-192.png', './manifest.webmanifest'])))
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './icon.svg', './icon-64.png', './icon-192.png', './manifest.webmanifest'])))
   self.skipWaiting()
 })
 self.addEventListener('activate', (e) => {

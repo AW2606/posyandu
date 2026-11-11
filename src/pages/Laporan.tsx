@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Field, Ikon, Kosong } from '../components/ui'
+import { Chip, Field, Ikon, JudulKartu, KepalaHalaman, Kosong } from '../components/ui'
 import { kegiatanPadaBulan, NAMA_BULAN, parseISO, tanggalAcuanBulan, tglPanjang } from '../lib/age'
 import { db } from '../lib/db'
 import { pilihKegiatanAktif, useKategori, useKegiatanList, usePengaturan } from '../lib/hooks'
@@ -9,6 +9,7 @@ import { LembarLaporan } from '../reports/LembarLaporan'
 import type { ParamLaporan } from '../reports/types'
 
 const PX_MM = 96 / 25.4
+const WARNA_DOK = ['#E46F4C', '#174F42', '#2C6A8C', '#8C6BC2', '#94600A', '#2E8B6A']
 
 export default function Laporan() {
   const p = usePengaturan()
@@ -64,25 +65,24 @@ export default function Laporan() {
     const ro = new ResizeObserver(hitung)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [lebarMM, def])
+  }, [lebarMM, def, !!hasil?.length])
 
   if (!def) {
     return (
       <>
-        <div className="judul-halaman"><h2>Laporan</h2></div>
-        <p className="redup" style={{ marginTop: -6 }}>Format sama dengan laporan manual Posyandu. Pilih laporan, periksa pratinjau, lalu cetak atau simpan sebagai PDF.</p>
+        <KepalaHalaman label="Rekap bulanan" judul="Laporan" sub="Format sama dengan laporan manual Posyandu. Pilih laporan, periksa pratinjau, lalu cetak." />
         <div className="pilihan-laporan">
-          {DAFTAR_LAPORAN.map((d) => (
-            <button key={d.kode} className="item" onClick={() => setKode(d.kode)}>
-              <div className="avatar"><Ikon nama="laporan" ukuran={22} /></div>
-              <div className="isi">
-                <div className="nama" style={{ whiteSpace: 'normal' }}>{d.nama}</div>
-                <div className="sub">{d.deskripsi}</div>
-              </div>
-              <Ikon nama="panah" ukuran={18} />
+          {DAFTAR_LAPORAN.map((d, i) => (
+            <button key={d.kode} className="kartu-laporan" onClick={() => setKode(d.kode)}>
+              <span className="ikon-dok" style={{ ['--w' as string]: WARNA_DOK[i % WARNA_DOK.length] }} aria-hidden><span><i /><i /><i /><i /></span></span>
+              <span className="btn-ikon" aria-hidden><Ikon nama="serong" ukuran={18} /></span>
+              <h3>{d.nama}</h3>
+              <p>{d.deskripsi}</p>
+              <span className="baris"><Chip>A4</Chip><Chip>PDF</Chip></span>
             </button>
           ))}
         </div>
+        <div className="banner info"><Ikon nama="info" ukuran={22} /> Di jendela cetak pilih “Simpan sebagai PDF”, ukuran A4, margin Tidak ada.</div>
       </>
     )
   }
@@ -91,13 +91,12 @@ export default function Laporan() {
 
   return (
     <>
-      <div className="judul-halaman no-print">
-        <button className="btn kecil" onClick={() => setKode(null)}>← Semua laporan</button>
-        <h2 style={{ fontSize: 18 }}>{def.nama}</h2>
-      </div>
+      <KepalaHalaman kembali={{ onClick: () => setKode(null), label: 'Semua laporan' }} label="Laporan" judul={def.nama} />
 
+      <div className="dua-kolom kiri-sempit">
       <div className="kartu no-print">
-        <div className="grid2 tumpuk">
+        <JudulKartu ikon="lainnya">Pengaturan laporan</JudulKartu>
+        <div>
           {def.param.includes('rt') && (
             <Field label="RT">
               <select className="input" value={param.rt} onChange={(e) => set('rt', e.target.value)}>
@@ -149,7 +148,7 @@ export default function Laporan() {
           )}
         </div>
         {def.param.includes('warga') && (
-          <div className="grid2 tumpuk">
+          <div>
             <Field label={def.kode === 'hasil-pemeriksaan' ? 'Warga (kosongkan untuk semua peserta)' : 'Warga'}>
               <input className="input" placeholder="Cari nama" value={cariWarga} onChange={(e) => setCariWarga(e.target.value)} />
             </Field>
@@ -161,12 +160,12 @@ export default function Laporan() {
             </Field>
           </div>
         )}
-        <label className="baris" style={{ margin: '4px 0 14px', cursor: 'pointer' }}>
-          <input type="checkbox" checked={param.ttd} onChange={(e) => set('ttd', e.target.checked)} style={{ width: 22, height: 22 }} />
+        <label className="kotak-centang">
+          <input type="checkbox" checked={param.ttd} onChange={(e) => set('ttd', e.target.checked)} />
           Sertakan kolom tanda tangan
         </label>
-        <button className="btn utama penuh" onClick={() => window.print()} disabled={!hasil?.length}>
-          <Ikon nama="cetak" ukuran={20} /> Cetak / simpan PDF
+        <button className="btn utama besar penuh" onClick={() => window.print()} disabled={!hasil?.length}>
+          <Ikon nama="cetak" ukuran={22} /> Cetak / simpan PDF
         </button>
         <p className="petunjuk" style={{ marginBottom: 0 }}>
           Di jendela cetak pilih <b>Simpan sebagai PDF</b>, ukuran <b>A4</b>, margin <b>Tidak ada</b>, dan matikan “Header dan footer”.
@@ -174,21 +173,25 @@ export default function Laporan() {
       </div>
 
       {hasil === undefined ? (
-        <p className="redup">Menyiapkan laporan…</p>
+        <div className="panel-pratinjau"><p><Ikon nama="mata" ukuran={18} /> Menyiapkan laporan…</p></div>
       ) : hasil.length === 0 ? (
         <div className="kartu">
           <Kosong
             judul="Belum ada data untuk dilaporkan"
-            teks={def.kode === 'kartu-pemeriksaan' ? 'Pilih warga terlebih dahulu.' : def.kode === 'hasil-pemeriksaan' || def.kode === 'pemberian-obat' ? 'Belum ada data pada periode ini. Coba bulan lain.' : 'Ubah parameter di atas.'}
+            teks={def.kode === 'kartu-pemeriksaan' ? 'Pilih warga terlebih dahulu.' : def.kode === 'hasil-pemeriksaan' || def.kode === 'pemberian-obat' ? 'Belum ada data pada periode ini. Coba bulan lain.' : 'Ubah pengaturan laporan.'}
           />
         </div>
       ) : (
-        <div className="kertas-gulir" ref={wadah}>
-          <div className="skala" style={{ zoom: skala }}>
-            {hasil.map((h, i) => <LembarLaporan key={i} hasil={h} ttd={param.ttd} pengaturan={p} />)}
+        <div className="panel-pratinjau">
+          <p><Ikon nama="mata" ukuran={18} /> Pratinjau · {hasil.length} halaman</p>
+          <div className="kertas-gulir" ref={wadah}>
+            <div className="skala" style={{ zoom: skala }}>
+              {hasil.map((h, i) => <LembarLaporan key={i} hasil={h} ttd={param.ttd} pengaturan={p} />)}
+            </div>
           </div>
         </div>
       )}
+      </div>
     </>
   )
 }

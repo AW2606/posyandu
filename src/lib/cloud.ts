@@ -158,7 +158,7 @@ export async function buatAkunKader(nama: string, username: string, password: st
   const k = getKonfig()
   if (!k) return 'Server belum dikonfigurasi'
   const u = username.trim().toLowerCase()
-  if (!POLA_USERNAME.test(u)) return 'Nama pengguna 3–30 karakter: huruf kecil, angka, titik, garis bawah, atau strip.'
+  if (!POLA_USERNAME.test(u)) return 'Nama pengguna 3-30 karakter: huruf kecil, angka, titik, garis bawah, atau strip.'
   if (password.length < 6) return 'Kata sandi minimal 6 karakter.'
   const sementara = createClient(k.url, k.key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'posyandu.sementara' },

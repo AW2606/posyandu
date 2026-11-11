@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Chip, GrafikGaris, Konfirmasi, Kosong, inisial, useToast } from '../components/ui'
+import { Chip, ChipKategori, Daun, GrafikGaris, Ikon, JudulKartu, Konfirmasi, Kosong, inisial, useToast, warnaKategori } from '../components/ui'
 import { formatUmur, kategoriDari, tglId, tglPanjang, todayISO } from '../lib/age'
 import { useAuth } from '../lib/auth'
 import { catat, db } from '../lib/db'
@@ -55,60 +55,83 @@ export default function WargaDetail() {
   const grafikBB = periksa.filter((x) => x.bb !== undefined).slice(-8).map((x) => ({ x: tglId(x.tanggal, '/').slice(0, 5), y: x.bb! }))
   const grafikTB = periksa.filter((x) => x.tb !== undefined).slice(-8).map((x) => ({ x: tglId(x.tanggal, '/').slice(0, 5), y: x.tb! }))
 
+  const bbSemua = periksa.filter((x) => x.bb !== undefined)
+  const selisihBB = bbSemua.length >= 2 ? bbSemua[bbSemua.length - 1].bb! - bbSemua[Math.max(0, bbSemua.length - 8)].bb! : undefined
+  const warna = warnaKategori(kat?.kode)
+  const info = (ikon: string, label: string, isi: React.ReactNode, sub?: string) => (
+    <div className="petak-info">
+      <Ikon nama={ikon} ukuran={20} />
+      <div><small>{label}</small><b>{isi}</b>{sub && <span>{sub}</span>}</div>
+    </div>
+  )
+  const perempuanSubur = w.jk === 'P' && kat && ['dewasa', 'remaja'].includes(kat.kode)
+
   return (
     <>
-      <div className="kartu">
-        <div className="baris" style={{ flexWrap: 'nowrap' }}>
-          <div className="avatar" style={{ width: 56, height: 56, fontSize: 20 }}>{inisial(w.nama)}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h2 style={{ fontSize: 20 }}>{w.nama}</h2>
-            <div className="baris" style={{ gap: 6, marginTop: 4 }}>
-              <Chip warna="biru">{kat?.nama}</Chip>
-              <Chip>{w.jk === 'L' ? 'Laki-laki' : 'Perempuan'}</Chip>
-              <Chip>RT {w.rt}</Chip>
-              {!w.aktif && <Chip warna="merah">Diarsipkan</Chip>}
-              {aktifStatus('hamil') && <Chip warna="kuning">Hamil</Chip>}
-              {aktifStatus('menyusui') && <Chip warna="kuning">Menyusui</Chip>}
-            </div>
-          </div>
-        </div>
-        <dl style={{ margin: '14px 0 0', display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 14px' }}>
-          <dt className="redup">Tanggal lahir</dt><dd style={{ margin: 0 }}>{tglPanjang(w.tanggalLahir)} ({formatUmur(w.tanggalLahir, ref)})</dd>
-          <dt className="redup">NIK</dt><dd style={{ margin: 0 }}>{w.nik || <span className="redup">Belum ada</span>}</dd>
-          <dt className="redup">No. KK</dt><dd style={{ margin: 0 }}>{w.noKK || '-'}</dd>
-          {w.namaOrtu && (<><dt className="redup">Orang tua</dt><dd style={{ margin: 0 }}>{w.namaOrtu}</dd></>)}
-          <dt className="redup">Alamat</dt><dd style={{ margin: 0 }}>{[w.alamat, w.dusun, `RT ${w.rt}`].filter(Boolean).join(', ')}</dd>
-          <dt className="redup">Kunjungan</dt><dd style={{ margin: 0 }}>{kunj} kali</dd>
-        </dl>
-        <div className="baris" style={{ marginTop: 14 }}>
-          <Link className="btn" to={`/warga/${wid}/ubah`}>Ubah data</Link>
-          {w.jk === 'P' && kat && ['dewasa', 'remaja'].includes(kat.kode) && (
-            <>
-              <button className="btn" onClick={() => setStatus('hamil')}>{aktifStatus('hamil') ? 'Akhiri hamil' : 'Tandai hamil'}</button>
-              <button className="btn" onClick={() => setStatus('menyusui')}>{aktifStatus('menyusui') ? 'Akhiri menyusui' : 'Tandai menyusui'}</button>
-            </>
-          )}
-          {isAdmin && <button className="btn bahaya" onClick={() => setArsip(true)}>{w.aktif ? 'Arsipkan' : 'Pulihkan'}</button>}
-        </div>
+      <div className="remah no-print">
+        <Link className="pil-kembali terang" to="/warga"><Ikon nama="kiri" ukuran={16} /> Warga</Link>
+        <span>Data warga</span>
       </div>
 
-      {umurBulan(w.tanggalLahir, ref) < 36 && <KartuImunisasi w={w} />}
-      {w.jk === 'P' && kat && ['dewasa', 'remaja'].includes(kat.kode) && <KartuKehamilan w={w} />}
+      <div className="dua-kolom profil">
+        <div>
+          <div className="kartu kartu-profil">
+            <div className="sampul" aria-hidden><Daun className="sampul-daun" /></div>
+            <div className="profil-atas">
+              <div className={`avatar besar ${warna}`}>{inisial(w.nama)}</div>
+              <div style={{ minWidth: 0 }}>
+                <h2>{w.nama}</h2>
+                <div className="baris" style={{ gap: 6, marginTop: 8 }}>
+                  <ChipKategori kode={kat?.kode} nama={kat?.nama} />
+                  <Chip>{w.jk === 'L' ? 'Laki-laki' : 'Perempuan'}</Chip>
+                  <Chip warna="biru">RT {w.rt}</Chip>
+                  {!w.aktif && <Chip warna="merah">Diarsipkan</Chip>}
+                  {aktifStatus('hamil') && <Chip warna="koral"><Ikon nama="hati" ukuran={14} /> Hamil</Chip>}
+                  {aktifStatus('menyusui') && <Chip warna="koral">Menyusui</Chip>}
+                </div>
+              </div>
+            </div>
+            <div className="grid-info">
+              {info('kalender', 'Tanggal lahir', tglPanjang(w.tanggalLahir), formatUmur(w.tanggalLahir, ref))}
+              {info('kunci', 'NIK', w.nik || <span className="redup">Belum ada</span>)}
+              {info('warga', 'No. KK', w.noKK || '-')}
+              {info('lokasi', 'Alamat', [w.alamat, w.dusun, `RT ${w.rt}`].filter(Boolean).join(', '))}
+              {w.namaOrtu && info('orang', 'Orang tua / wali', w.namaOrtu)}
+              {info('riwayat', 'Kunjungan', `${kunj} kali`, periksa[0] ? `sejak ${tglId(periksa[0].tanggal)}` : undefined)}
+            </div>
+            <div className="baris" style={{ marginTop: 20 }}>
+              <Link className="btn utama kecil" to={`/warga/${wid}/ubah`}><Ikon nama="pensil" ukuran={17} /> Ubah data</Link>
+              {perempuanSubur && (
+                <>
+                  <button className="btn kecil" onClick={() => setStatus('hamil')}>{aktifStatus('hamil') ? 'Akhiri hamil' : 'Tandai hamil'}</button>
+                  <button className="btn kecil" onClick={() => setStatus('menyusui')}>{aktifStatus('menyusui') ? 'Akhiri menyusui' : 'Tandai menyusui'}</button>
+                </>
+              )}
+              {isAdmin && <button className="btn bahaya kecil" onClick={() => setArsip(true)}><Ikon nama="arsip" ukuran={17} /> {w.aktif ? 'Arsipkan' : 'Pulihkan'}</button>}
+            </div>
+          </div>
 
+          {umurBulan(w.tanggalLahir, ref) < 36 && <KartuImunisasi w={w} />}
+          {perempuanSubur && <KartuKehamilan w={w} />}
+        </div>
+
+        <div>
       <div className="kartu">
-        <h3>Grafik {balita ? 'pertumbuhan' : 'berat badan'}</h3>
-        <p className="kecil redup" style={{ margin: '0 0 4px' }}>Berat badan (kg)</p>
+        <JudulKartu ikon="grafik" ekor={selisihBB !== undefined && selisihBB !== 0 ? (
+          <Chip warna={selisihBB > 0 ? 'hijau' : 'koral'}><Ikon nama="serong" ukuran={14} tebal={2.4} /> {selisihBB > 0 ? '+' : ''}{angkaId(selisihBB)} kg</Chip>
+        ) : undefined}>Grafik {balita ? 'pertumbuhan' : 'berat badan'}</JudulKartu>
+        <p className="kecil redup" style={{ margin: '-8px 0 8px' }}>Berat badan (kg) · {grafikBB.length} kunjungan terakhir</p>
         <GrafikGaris titik={grafikBB} satuan="berat badan" />
         {balita && (
           <>
-            <p className="kecil redup" style={{ margin: '10px 0 4px' }}>Panjang/tinggi badan (cm)</p>
+            <p className="kecil redup" style={{ margin: '14px 0 8px' }}>Panjang/tinggi badan (cm)</p>
             <GrafikGaris titik={grafikTB} satuan="tinggi badan" />
           </>
         )}
       </div>
 
       <div className="kartu">
-        <h3>Riwayat pemeriksaan</h3>
+        <JudulKartu ikon="riwayat" warna="biru">Riwayat pemeriksaan</JudulKartu>
         {periksa.length === 0 ? (
           <Kosong judul="Belum ada pemeriksaan" teks="Hasil akan muncul setelah warga diperiksa di hari Posyandu." />
         ) : (
@@ -138,6 +161,8 @@ export default function WargaDetail() {
             </table>
           </div>
         )}
+      </div>
+        </div>
       </div>
 
       {arsip && (

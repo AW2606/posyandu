@@ -5,8 +5,9 @@ import App from './App'
 import { AuthProvider } from './lib/auth'
 import { ToastProvider } from './components/ui'
 import { terimaTautan } from './lib/cloud'
+import '@fontsource-variable/nunito-sans/index.css'
+import '@fontsource/playfair-display/500-italic.css'
 import './styles.css'
-import './tema.css'
 
 terimaTautan()
 

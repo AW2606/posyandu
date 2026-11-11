@@ -117,7 +117,7 @@ export function validasiPemeriksaan(mentah: Partial<Record<KolomUkur, string>>):
       continue
     }
     const r = RENTANG_UKUR[k]
-    if (n < r.min || n > r.max) g[k] = `Harus antara ${angkaId(r.min, 0)}–${angkaId(r.max, 0)} ${r.satuan}.`
+    if (n < r.min || n > r.max) g[k] = `Harus antara ${angkaId(r.min, 0)}-${angkaId(r.max, 0)} ${r.satuan}.`
   }
   return g
 }

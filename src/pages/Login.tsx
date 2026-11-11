@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import fotoPanel from '../assets/foto/ibu-bayi-1.jpg'
+import { Bangau, Chip, Ikon, Logo, Merek } from '../components/ui'
 import { useAuth } from '../lib/auth'
 import { bacaAlasanKeluar, hapusAlasanKeluar } from '../lib/sesi'
-import logo from '../logo.jpeg'
 import '../landing.css'
 
 export default function Login() {
@@ -26,52 +27,80 @@ export default function Login() {
   }
 
   return (
-    <div className="lp lg">
-      <div className="lg-blob a" aria-hidden />
-      <div className="lg-blob b" aria-hidden />
-      <Link className="lg-back" to="/">← Beranda</Link>
+    <div className="lg">
+      <aside className="lg-panel" aria-hidden>
+        <img src={fotoPanel} alt="" />
+        <Merek />
+        <Bangau className="lg-bangau" />
+        <div>
+          <h2>Catat sekali, <span className="miring">rekap otomatis.</span></h2>
+          <ul>
+            <li><Ikon nama="centang" tebal={3} /> Pemeriksaan tercatat rapi per warga</li>
+            <li><Ikon nama="centang" tebal={3} /> Laporan bulanan siap cetak</li>
+            <li><Ikon nama="centang" tebal={3} /> Tetap bisa dipakai tanpa internet</li>
+          </ul>
+        </div>
+      </aside>
 
-      <form className="lg-card" onSubmit={kirim}>
-        <img className="lp-mark lg-mark" src={logo} alt="Posyandu Bangau" />
-        <h1>Selamat Datang, Kader</h1>
-        <p className="lg-sub">Portal Posyandu Bangau · Dusun 5, Way Huwi</p>
+      <div className="lg-kanan">
+        <Link className="lg-kembali" to="/"><Ikon nama="kiri" ukuran={18} /> Beranda</Link>
+        <div className="lg-isi">
+          <form className="lg-card" onSubmit={kirim}>
+            <span className="lg-titik" aria-hidden />
+            <div className="atas">
+              <Logo ukuran={60} />
+              <Chip warna="mint" titik>Portal Kader</Chip>
+            </div>
+            <div>
+              <h1>Selamat datang kembali, Bu Kader</h1>
+            </div>
+            <p className="lg-sub">Masuk untuk mulai mencatat kegiatan Posyandu Bangau.</p>
 
-        <label className="lg-field">
-          <span>Nama pengguna</span>
-          <input autoCapitalize="none" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
-        </label>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label htmlFor="lg-user">Nama pengguna</label>
+              <div className="lg-ikon-isian">
+                <Ikon nama="orang" ukuran={20} />
+                <input id="lg-user" className="input" autoCapitalize="none" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+              </div>
+            </div>
 
-        <label className="lg-field">
-          <span>Kata sandi</span>
-          <div className="lg-pw">
-            <input type={lihat ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <button type="button" onClick={() => setLihat(!lihat)} aria-pressed={lihat}>
-              {lihat ? 'Sembunyi' : 'Lihat'}
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label htmlFor="lg-pw">Kata sandi</label>
+              <div className="lg-ikon-isian lg-pw">
+                <Ikon nama="kunci" ukuran={20} />
+                <input id="lg-pw" className="input" type={lihat ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <button type="button" onClick={() => setLihat(!lihat)} aria-pressed={lihat}>
+                  <Ikon nama="mata" ukuran={16} /> {lihat ? 'Sembunyi' : 'Lihat'}
+                </button>
+              </div>
+            </div>
+
+            {galat ? (
+              <div className="lg-err" role="alert"><Ikon nama="peringatan" ukuran={20} /> {galat}</div>
+            ) : (
+              info && <div className="lg-err" role="status"><Ikon nama="info" ukuran={20} /> {info}</div>
+            )}
+
+            <button className="btn utama besar penuh" disabled={proses || !username || !password}>
+              {proses ? 'Memeriksa…' : <>Masuk <Ikon nama="kanan" ukuran={20} /></>}
             </button>
-          </div>
-        </label>
 
-        {galat ? (
-          <div className="lg-err" role="alert">{galat}</div>
-        ) : (
-          info && <div className="lg-err" role="status">{info}</div>
-        )}
-
-        <button className="lp-btn lg-submit" disabled={proses || !username || !password}>
-          {proses ? 'Memeriksa…' : 'Masuk'}
-        </button>
-
-        <p className="lg-note">
-          {cloud ? (
-            'Masuk dengan akun yang dibuat admin Posyandu.'
-          ) : (
-            <>
-              Perangkat ini belum terhubung ke server bersama. Jika admin mengirim tautan, buka tautan itu lebih dulu.
-              Untuk memakai sendiri, masuk dengan <b>admin</b> / <b>admin123</b>, lalu segera ganti kata sandi di menu Lainnya.
-            </>
-          )}
-        </p>
-      </form>
+            <div className="lg-note">
+              <Ikon nama="info" ukuran={20} />
+              <span>
+                {cloud ? (
+                  'Lupa kata sandi? Hubungi admin Posyandu untuk mengatur ulang.'
+                ) : (
+                  <>
+                    Perangkat ini belum terhubung ke server bersama. Jika admin mengirim tautan, buka tautan itu lebih dulu.
+                    Untuk memakai sendiri, masuk dengan <b>admin</b> / <b>admin123</b>, lalu segera ganti kata sandi di menu Lainnya.
+                  </>
+                )}
+              </span>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }

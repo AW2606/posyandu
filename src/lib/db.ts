@@ -140,7 +140,7 @@ export const PENGATURAN_DEFAULT: Pengaturan = {
   namaPosyandu: 'POSYANDU BANGAU',
   dusun: 'DUSUN 5',
   desa: 'WAY HUWI',
-  kecamatan: 'JATI AGUNG LAM – SEL',
+  kecamatan: 'JATI AGUNG LAM - SEL',
   alamatKop: 'PERUM. BW Dusun 5 RT.22 Desa Way Huwi\nKec.Jati Agung Lam-Sel',
   puskesmas: 'KARANG ANYAR',
   rtDaftar: ['18', '20', '22', '24'],
@@ -232,8 +232,21 @@ let user = ''
 export function setAuditUser(u: string) {
   user = u
 }
+/** Riwayat perubahan disimpan paling banyak sekian baris; yang paling lama dihapus. */
+export const BATAS_AUDIT = 500
+
 export async function catat(aksi: string, entitas: string, detail: string): Promise<void> {
   await db.audit.add({ waktu: Date.now(), user, aksi, entitas, detail })
+  await pangkasAudit()
+}
+
+/** Hapus catatan tertua yang melewati batas. Penghapusan ikut tersinkron ke server. */
+export async function pangkasAudit(batas = BATAS_AUDIT): Promise<number> {
+  const lebih = (await db.audit.count()) - batas
+  if (lebih <= 0) return 0
+  const tertua = await db.audit.orderBy('waktu').limit(lebih).primaryKeys()
+  await db.audit.bulkDelete(tertua)
+  return tertua.length
 }
 
 /** Pastikan master data dasar dan akun awal tersedia. */

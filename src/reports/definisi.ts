@@ -92,7 +92,7 @@ const sasaranBalita = sasaran(
   (k) => {
     const c = k.kategori.find((x) => x.kode === 'balita')
     const akhir = c?.umurMax ? c.umurMax - 1 : 5
-    return `SASARAN USIA BALITA ( ${c?.umurMin ?? 0} – ${akhir} tahun )`
+    return `SASARAN USIA BALITA ( ${c?.umurMin ?? 0} - ${akhir} tahun )`
   },
 )
 
@@ -268,7 +268,7 @@ const kartuPemeriksaan: DefinisiLaporan = {
     const s = k.pengaturan
     return [
       {
-        kop: ['KARTU BANTU PEMERIKSAAN DEWASA LANSIA (18–59 Tahun)'],
+        kop: ['KARTU BANTU PEMERIKSAAN DEWASA LANSIA (18-59 Tahun)'],
         gayaKop: 'tengah',
         metaKiri: [
           ['Posyandu', s.namaPosyandu.replace(/^POSYANDU\s+/i, '')],
