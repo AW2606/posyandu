@@ -1,9 +1,12 @@
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Chip, ChipKategori, Ikon, KepalaHalaman, Kosong, hexKategori, inisial, warnaKategori } from '../components/ui'
+import { AksiPilihan, BilahPilih, Centang, teksHapusBanyak, usePilihan } from '../components/Pilihan'
+import { Chip, ChipKategori, Ikon, KepalaHalaman, Konfirmasi, Kosong, hexKategori, inisial, useToast, warnaKategori } from '../components/ui'
 import { formatUmur, todayISO, tglId } from '../lib/age'
 import { useAuth } from '../lib/auth'
 import { unduhTeks } from '../lib/csv'
+import { aturArsipWarga, db, hapusWargaPermanen } from '../lib/db'
 import { useKategori, usePengaturan } from '../lib/hooks'
 import { useWargaPlus, type WargaPlus } from '../lib/wargaData'
 
@@ -58,6 +61,27 @@ export default function WargaList() {
 
   const toggle = (k: Penanda) => setPenanda((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]))
 
+  const jumlahArsip = useLiveQuery(() => db.warga.filter((w) => !w.aktif).count()) ?? 0
+  const toast = useToast()
+  const pilih = usePilihan()
+  const idHasil = useMemo(() => hasil.map((x) => x.w.id!), [hasil])
+  const [konf, setKonf] = useState<null | 'arsip' | { teks: string }>(null)
+  const [sibuk, setSibuk] = useState(false)
+
+  async function mintaHapus() {
+    setKonf({ teks: await teksHapusBanyak([...pilih.ids]) })
+  }
+  async function jalankan(aksi: () => Promise<string>) {
+    if (sibuk) return
+    setSibuk(true)
+    try {
+      toast(await aksi())
+      pilih.selesai()
+    } finally {
+      setSibuk(false)
+      setKonf(null)
+    }
+  }
   const katUrut = [...kategori].sort((a, b) => a.urutan - b.urutan)
   const nHamil = semua.filter((x) => x.hamil).length
 
@@ -69,6 +93,9 @@ export default function WargaList() {
         </Link>
         {hasil.length > 0 && (
           <button className="btn" onClick={ekspor}><Ikon nama="unduh" ukuran={20} /> Unduh CSV</button>
+        )}
+        {isAdmin && (
+          <Link className="btn" to="/warga/arsip"><Ikon nama="arsip" ukuran={20} /> Arsip{jumlahArsip ? <span className="lencana">{jumlahArsip}</span> : null}</Link>
         )}
       </KepalaHalaman>
 
@@ -118,7 +145,11 @@ export default function WargaList() {
         </div>
       )}
 
-      <p className="redup" style={{ margin: '14px 0 16px', fontWeight: 600, fontSize: 15 }}>Menampilkan {hasil.length} orang · urut nama</p>
+      {isAdmin ? (
+        <BilahPilih p={pilih} terlihat={idHasil} teks={`Menampilkan ${hasil.length} orang · urut nama`} />
+      ) : (
+        <p className="redup" style={{ margin: '14px 0 16px', fontWeight: 600, fontSize: 15 }}>Menampilkan {hasil.length} orang · urut nama</p>
+      )}
 
       {semua.length === 0 ? (
         <div className="kartu">
@@ -139,28 +170,69 @@ export default function WargaList() {
       ) : (
         <>
           <div className="daftar grid">
-            {hasil.slice(0, 200).map((x) => (
-              <Link key={x.w.id} to={`/warga/${x.w.id}`} className="item">
-                <div className={`avatar ${warnaKategori(x.kode)}`}>{inisial(x.w.nama)}</div>
-                <div className="isi">
-                  <div className="nama">{x.w.nama}</div>
-                  <div className="sub">
-                    <span>{x.w.jk === 'L' ? 'L' : 'P'} · {formatUmur(x.w.tanggalLahir, ref)} · RT {x.w.rt}</span>
-                    <ChipKategori kode={x.kode} nama={kategori.find((k) => k.kode === x.kode)?.nama} />
-                    {x.hamil && <Chip warna="koral">Hamil</Chip>}
-                    {x.menyusui && <Chip warna="koral">Menyusui</Chip>}
-                    {x.tinggi && <Chip warna="merah">Tensi tinggi</Chip>}
-                    {x.perutRisiko && <Chip warna="merah">Lingkar perut</Chip>}
-                    {x.gizi && x.gizi !== 'Normal' && <Chip warna="merah">Gizi {x.gizi.toLowerCase()}</Chip>}
-                    {!x.w.nik && <Chip warna="abu">Tanpa NIK</Chip>}
+            {hasil.slice(0, 200).map((x) => {
+              const isi = (
+                <>
+                  <div className={`avatar ${warnaKategori(x.kode)}`}>{inisial(x.w.nama)}</div>
+                  <div className="isi">
+                    <div className="nama">{x.w.nama}</div>
+                    <div className="sub">
+                      <span>{x.w.jk === 'L' ? 'L' : 'P'} · {formatUmur(x.w.tanggalLahir, ref)} · RT {x.w.rt}</span>
+                      <ChipKategori kode={x.kode} nama={kategori.find((k) => k.kode === x.kode)?.nama} />
+                      {x.hamil && <Chip warna="koral">Hamil</Chip>}
+                      {x.menyusui && <Chip warna="koral">Menyusui</Chip>}
+                      {x.tinggi && <Chip warna="merah">Tensi tinggi</Chip>}
+                      {x.perutRisiko && <Chip warna="merah">Lingkar perut</Chip>}
+                      {x.gizi && x.gizi !== 'Normal' && <Chip warna="merah">Gizi {x.gizi.toLowerCase()}</Chip>}
+                      {!x.w.nik && <Chip warna="abu">Tanpa NIK</Chip>}
+                    </div>
                   </div>
-                </div>
-                <span className="btn-ikon"><Ikon nama="panah" ukuran={18} /></span>
-              </Link>
-            ))}
+                </>
+              )
+              if (pilih.aktif) {
+                const on = pilih.ids.has(x.w.id!)
+                return (
+                  <button key={x.w.id} type="button" className={`item ${on ? 'terpilih' : ''}`} onClick={() => pilih.toggle(x.w.id!)} aria-pressed={on}>
+                    <Centang on={on} />
+                    {isi}
+                  </button>
+                )
+              }
+              return (
+                <Link key={x.w.id} to={`/warga/${x.w.id}`} className="item">
+                  {isi}
+                  <span className="btn-ikon"><Ikon nama="panah" ukuran={18} /></span>
+                </Link>
+              )
+            })}
           </div>
-          {hasil.length > 200 && <p className="petunjuk">Menampilkan 200 pertama. Persempit dengan pencarian atau filter.</p>}
+          {hasil.length > 200 && <p className="petunjuk">Menampilkan 200 pertama di layar. {pilih.aktif ? `"Pilih semua" tetap memilih ke-${hasil.length} warga yang cocok.` : 'Persempit dengan pencarian atau filter.'}</p>}
         </>
+      )}
+
+      <AksiPilihan p={pilih}>
+        <button className="btn lembut" onClick={() => setKonf('arsip')}><Ikon nama="arsip" ukuran={18} /> Arsipkan</button>
+        <button className="btn bahaya" onClick={mintaHapus}><Ikon nama="tutup" ukuran={18} /> Hapus permanen</button>
+      </AksiPilihan>
+
+      {konf === 'arsip' && (
+        <Konfirmasi
+          judul={`Arsipkan ${pilih.ids.size} warga?`}
+          teks="Warga terpilih disembunyikan dari daftar, meja layanan, dan laporan. Riwayatnya tetap tersimpan dan bisa dipulihkan dari halaman Arsip warga."
+          labelYa={sibuk ? 'Mengarsipkan…' : 'Arsipkan'}
+          onYa={() => jalankan(async () => `${await aturArsipWarga([...pilih.ids], false)} warga diarsipkan`)}
+          onBatal={() => setKonf(null)}
+        />
+      )}
+      {konf && typeof konf === 'object' && (
+        <Konfirmasi
+          judul={`Hapus permanen ${pilih.ids.size} warga?`}
+          teks={konf.teks}
+          labelYa={sibuk ? 'Menghapus…' : 'Hapus permanen'}
+          bahaya
+          onYa={() => jalankan(async () => `${await hapusWargaPermanen([...pilih.ids])} warga dihapus`)}
+          onBatal={() => setKonf(null)}
+        />
       )}
     </>
   )

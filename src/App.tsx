@@ -13,6 +13,7 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Pengaturan from './pages/Pengaturan'
 import TindakLanjut from './pages/TindakLanjut'
+import WargaArsip from './pages/WargaArsip'
 import WargaDetail from './pages/WargaDetail'
 import WargaForm from './pages/WargaForm'
 import WargaImpor from './pages/WargaImpor'
@@ -116,6 +117,8 @@ export default function App() {
             <Route path="/warga/baru" element={<WargaForm />} />
             {/* Impor massal khusus admin, sama seperti menu di Lainnya. Kader yang membuka URL-nya dialihkan. */}
             <Route path="/warga/impor" element={user.role === 'admin' ? <WargaImpor /> : <Navigate to="/warga" replace />} />
+            {/* Arsip warga (pulihkan / hapus permanen) khusus admin. */}
+            <Route path="/warga/arsip" element={user.role === 'admin' ? <WargaArsip /> : <Navigate to="/warga" replace />} />
             <Route path="/warga/:id" element={<WargaDetail />} />
             <Route path="/warga/:id/ubah" element={<WargaForm />} />
             <Route path="/tindak-lanjut" element={<TindakLanjut />} />

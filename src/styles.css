@@ -766,6 +766,26 @@ textarea.input { min-height: 96px; resize: vertical; }
 .baris-kategori b { flex: 1; font-weight: 700; }
 .baris-kategori .input { width: 64px; min-height: 46px; padding: 8px; text-align: center; font-weight: 800; background: var(--kunyit-muda); border-color: var(--kunyit-lembut); }
 .baris-kategori span { font-size: 13px; color: var(--pudar); }
+/* mode pilih banyak */
+.bilah-pilih { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 16px; font-weight: 600; font-size: 15px; }
+.pilih-semua { display: inline-flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 16px; border-radius: 999px; background: var(--mint); color: var(--hijau-daun); font-weight: 700; font-size: 15px; cursor: pointer; }
+.pilih-semua input { width: 20px; height: 20px; accent-color: var(--hijau); }
+.centang-pilih { width: 28px; height: 28px; flex: none; border-radius: 50%; border: 2px solid var(--garis); background: #fff; display: grid; place-items: center; color: #fff; transition: background .15s, border-color .15s; }
+.centang-pilih.on { background: var(--hijau); border-color: var(--hijau); }
+.item.terpilih { box-shadow: inset 0 0 0 2px var(--hijau-segar), var(--bayang-kecil); background: #F4FBF6; }
+.aksi-pilihan {
+  position: sticky; bottom: calc(var(--nav) + 24px); z-index: 20; margin-top: 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 12px 12px 22px; border-radius: 24px; background: var(--tinta); color: #fff; box-shadow: 0 16px 40px #16302a55;
+}
+.aksi-pilihan b { font-size: 20px; font-weight: 900; }
+.aksi-pilihan-tombol { display: flex; gap: 8px; flex-wrap: wrap; }
+.aksi-pilihan .pudar { opacity: .7; font-size: 14px; padding: 10px 6px; }
+.aksi-pilihan .btn { min-height: 44px; font-size: 15px; padding: 0 16px; border: 0; }
+@media (min-width: 900px) { .aksi-pilihan { bottom: 20px; } }
+@media (max-width: 600px) { .aksi-pilihan { padding: 12px; } .aksi-pilihan-tombol { width: 100%; } .aksi-pilihan-tombol .btn { flex: 1; } }
+.item-arsip { flex-direction: column; align-items: stretch; gap: 0; cursor: default; }
+.item-arsip-atas { display: flex; align-items: center; gap: 14px; min-width: 0; text-decoration: none; color: inherit; }
 .daftar-akun { display: grid; gap: 10px; }
 .akun { padding: 14px; border-radius: 20px; background: var(--krem-2); }
 .akun.nonaktif { background: #fff; box-shadow: inset 0 0 0 1.5px var(--garis); }
@@ -778,6 +798,7 @@ textarea.input { min-height: 96px; resize: vertical; }
 .akun-aksi { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1.5px dashed var(--garis); }
 .akun-aksi .btn { flex: 1 1 auto; min-height: 40px; padding: 0 14px; font-size: 14.5px; background: #fff; }
 .akun-aksi .btn.bahaya { background: var(--merah-muda); }
+.akun-aksi .btn.lembut { background: var(--mint); border-color: var(--mint); }
 .carousel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
 .carousel::-webkit-scrollbar { display: none; }
 .carousel-slide { flex: 0 0 100%; min-width: 0; scroll-snap-align: start; list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; align-content: start; }

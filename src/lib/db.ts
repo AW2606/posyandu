@@ -249,6 +249,56 @@ export async function pangkasAudit(batas = BATAS_AUDIT): Promise<number> {
   return tertua.length
 }
 
+/** Tabel yang menyimpan data milik satu warga (selain tabel warga itu sendiri). */
+const TABEL_MILIK_WARGA = ['pemeriksaan', 'kunjungan', 'statusKhusus', 'layananObat', 'imunisasi', 'kehamilan'] as const
+
+const daftarId = (id: number | number[]) => (Array.isArray(id) ? id : [id])
+
+/** Jumlah catatan milik satu atau beberapa warga, untuk ditampilkan sebelum menghapus. */
+export async function hitungDataWarga(id: number | number[]): Promise<{ kunjungan: number; pemeriksaan: number; lain: number }> {
+  const ids = daftarId(id)
+  const [pemeriksaan, kunjungan, ...lain] = await Promise.all(
+    TABEL_MILIK_WARGA.map((t) => db.table(t).where('wargaId').anyOf(ids).count()),
+  )
+  return { kunjungan, pemeriksaan, lain: lain.reduce((a, b) => a + b, 0) }
+}
+
+/** Ringkasan nama untuk riwayat perubahan: "Ani" atau "3 warga (Ani, Budi, Citra)". */
+function namaRingkas(nama: string[]): string {
+  if (nama.length === 1) return nama[0]
+  const contoh = nama.slice(0, 3).join(', ')
+  return `${nama.length} warga (${contoh}${nama.length > 3 ? ', dst.' : ''})`
+}
+
+/**
+ * Hapus satu atau beberapa warga beserta seluruh datanya (kunjungan, pemeriksaan, imunisasi,
+ * kehamilan, status, obat). Tidak bisa dibatalkan. Khusus admin; di mode server aturan ini juga ditegakkan server.
+ */
+export async function hapusWargaPermanen(id: number | number[]): Promise<number> {
+  const ws = (await db.warga.bulkGet(daftarId(id))).filter((w): w is Warga => !!w)
+  if (!ws.length) return 0
+  const ids = ws.map((w) => w.id!)
+  await db.transaction('rw', [db.warga, ...TABEL_MILIK_WARGA.map((t) => db.table(t))], async () => {
+    for (const t of TABEL_MILIK_WARGA) await db.table(t).where('wargaId').anyOf(ids).delete()
+    await db.warga.bulkDelete(ids)
+  })
+  await catat('hapus', 'warga', namaRingkas(ws.map((w) => w.nama)))
+  return ids.length
+}
+
+/** Arsipkan (aktif = false) atau pulihkan (aktif = true) satu atau beberapa warga sekaligus. */
+export async function aturArsipWarga(id: number | number[], aktif: boolean): Promise<number> {
+  const ws = (await db.warga.bulkGet(daftarId(id))).filter((w): w is Warga => !!w && w.aktif !== aktif)
+  if (!ws.length) return 0
+  const now = Date.now()
+  // update satu per satu supaya hook sinkronisasi pasti mencatat setiap baris
+  await db.transaction('rw', db.warga, async () => {
+    for (const w of ws) await db.warga.update(w.id!, { aktif, diubah: now })
+  })
+  await catat(aktif ? 'pulihkan' : 'arsip', 'warga', namaRingkas(ws.map((w) => w.nama)))
+  return ws.length
+}
+
 /** Pastikan master data dasar dan akun awal tersedia. */
 export async function inisialisasi(opsi: { isiBawaan: boolean } = { isiBawaan: true }): Promise<void> {
   // Mode cloud: jangan menulis bawaan, nanti ikut tersinkron dan bisa menimpa pengaturan admin.

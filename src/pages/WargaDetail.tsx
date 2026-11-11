@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Chip, ChipKategori, Daun, GrafikGaris, Ikon, JudulKartu, Konfirmasi, Kosong, inisial, useToast, warnaKategori } from '../components/ui'
 import { formatUmur, kategoriDari, tglId, tglPanjang, todayISO } from '../lib/age'
 import { useAuth } from '../lib/auth'
-import { catat, db } from '../lib/db'
+import { catat, db, hapusWargaPermanen, hitungDataWarga } from '../lib/db'
 import { angkaId, hitungIMT, lingkarPerutBerisiko, statusGizi, tekananDarahBerisiko } from '../lib/health'
 import { useKategori, usePengaturan } from '../lib/hooks'
 import { KartuImunisasi, KartuKehamilan } from '../components/KartuKhusus'
@@ -19,6 +19,8 @@ export default function WargaDetail() {
   const p = usePengaturan()
   const kategori = useKategori()
   const [arsip, setArsip] = useState(false)
+  const [hapus, setHapus] = useState<string | null>(null)
+  const [menghapus, setMenghapus] = useState(false)
   const w = useLiveQuery(() => db.warga.get(wid), [wid])
   const periksa = useLiveQuery(() => db.pemeriksaan.where('wargaId').equals(wid).sortBy('tanggal'), [wid]) ?? []
   const status = useLiveQuery(() => db.statusKhusus.where('wargaId').equals(wid).toArray(), [wid]) ?? []
@@ -51,6 +53,21 @@ export default function WargaDetail() {
     if (w!.aktif) nav('/warga')
   }
 
+  async function mintaHapus() {
+    const n = await hitungDataWarga(wid)
+    const ikut = [n.kunjungan && `${n.kunjungan} kunjungan`, n.pemeriksaan && `${n.pemeriksaan} hasil pemeriksaan`, n.lain && `${n.lain} catatan lain`].filter(Boolean).join(', ')
+    setHapus(`${w!.nama} akan dihapus permanen${ikut ? ` beserta ${ikut}` : ''}. Data yang dihapus tidak bisa dikembalikan dan juga hilang dari laporan bulan-bulan sebelumnya. Jika hanya ingin menyembunyikan, pakai Arsipkan.`)
+  }
+
+  async function hapusPermanen() {
+    if (menghapus) return
+    setMenghapus(true)
+    const tujuan = w!.aktif ? '/warga' : '/warga/arsip'
+    await hapusWargaPermanen(wid)
+    toast(`${w!.nama} dihapus`)
+    nav(tujuan, { replace: true })
+  }
+
   const balita = kat?.kode === 'balita'
   const grafikBB = periksa.filter((x) => x.bb !== undefined).slice(-8).map((x) => ({ x: tglId(x.tanggal, '/').slice(0, 5), y: x.bb! }))
   const grafikTB = periksa.filter((x) => x.tb !== undefined).slice(-8).map((x) => ({ x: tglId(x.tanggal, '/').slice(0, 5), y: x.tb! }))
@@ -69,7 +86,9 @@ export default function WargaDetail() {
   return (
     <>
       <div className="remah no-print">
-        <Link className="pil-kembali terang" to="/warga"><Ikon nama="kiri" ukuran={16} /> Warga</Link>
+        {w.aktif || !isAdmin
+          ? <Link className="pil-kembali terang" to="/warga"><Ikon nama="kiri" ukuran={16} /> Warga</Link>
+          : <Link className="pil-kembali terang" to="/warga/arsip"><Ikon nama="kiri" ukuran={16} /> Arsip warga</Link>}
         <span>Data warga</span>
       </div>
 
@@ -107,7 +126,10 @@ export default function WargaDetail() {
                   <button className="btn kecil" onClick={() => setStatus('menyusui')}>{aktifStatus('menyusui') ? 'Akhiri menyusui' : 'Tandai menyusui'}</button>
                 </>
               )}
-              {isAdmin && <button className="btn bahaya kecil" onClick={() => setArsip(true)}><Ikon nama="arsip" ukuran={17} /> {w.aktif ? 'Arsipkan' : 'Pulihkan'}</button>}
+              {isAdmin && (w.aktif
+                ? <button className="btn bahaya kecil" onClick={() => setArsip(true)}><Ikon nama="arsip" ukuran={17} /> Arsipkan</button>
+                : <button className="btn lembut kecil" onClick={() => setArsip(true)}><Ikon nama="ulang" ukuran={17} /> Pulihkan</button>)}
+              {isAdmin && <button className="btn bahaya kecil" onClick={mintaHapus}><Ikon nama="tutup" ukuran={17} /> Hapus permanen</button>}
             </div>
           </div>
 
@@ -173,6 +195,16 @@ export default function WargaDetail() {
           bahaya={w.aktif}
           onYa={arsipkan}
           onBatal={() => setArsip(false)}
+        />
+      )}
+      {hapus && (
+        <Konfirmasi
+          judul="Hapus permanen?"
+          teks={hapus}
+          labelYa={menghapus ? 'Menghapus…' : 'Hapus permanen'}
+          bahaya
+          onYa={hapusPermanen}
+          onBatal={() => setHapus(null)}
         />
       )}
     </>
