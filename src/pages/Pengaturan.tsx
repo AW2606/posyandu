@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Chip, Field, Ikon, JudulKartu, KepalaHalaman, Konfirmasi, Logo, Sheet, inisial, useToast } from '../components/ui'
 import { FormServer } from '../components/FormServer'
 import { buatUser, gantiPassword, gantiPasswordCloud, useAuth } from '../lib/auth'
-import { buatAkunKader, buatTautan, getKlien, getSinkron, useStatusSinkron, type Profil } from '../lib/cloud'
+import { buatAkunKader, buatTautan, getKlien, getSinkron, hapusAkun, useStatusSinkron, type Profil } from '../lib/cloud'
 import { BATAS_AUDIT, db, eksporSemua, impor, inisialisasi, simpanPengaturan, type AuditLog, type Pengaturan as TPengaturan, type Role } from '../lib/db'
 import { unduhTeks } from '../lib/csv'
 import { usePengaturan, useKategori } from '../lib/hooks'
@@ -196,6 +196,7 @@ function Akun() {
   const [galat, setGalat] = useState<string | null>(null)
   const [reset, setReset] = useState<number | null>(null)
   const [sandi, setSandi] = useState('')
+  const [hapus, setHapus] = useState<{ id: number; nama: string } | null>(null)
 
   async function tambah() {
     if (!f.nama.trim() || !f.username.trim() || f.password.length < 6) return setGalat('Lengkapi data. Kata sandi minimal 6 karakter.')
@@ -208,21 +209,29 @@ function Akun() {
   return (
     <div className="kartu">
       <JudulKartu ikon="warga" ekor={<button className="btn ajakan kecil" onClick={() => setBaru(true)}><Ikon nama="tambah" ukuran={18} /> Buat akun</button>}>Akun kader</JudulKartu>
-      <div className="daftar" style={{ marginBottom: 12 }}>
+      <div className="daftar-akun">
         {users.map((u) => (
-          <div key={u.id} className="item baris-akun" style={{ cursor: 'default' }}>
-            <div className={`avatar ${u.aktif ? (u.role === 'admin' ? 'biru' : '') : 'krem'}`}>{inisial(u.nama)}</div>
-            <div className="isi">
-              <div className="nama">{u.nama}</div>
-              <div className="sub"><span>@{u.username}</span><Chip warna={u.role === 'admin' ? 'biru' : 'mint'}>{u.role === 'admin' ? 'Admin' : 'Kader'}</Chip>{!u.aktif && <Chip warna="merah">Nonaktif</Chip>}</div>
-            </div>
-            <button className="btn kecil" onClick={() => { setReset(u.id!); setSandi('') }}>Reset</button>
+          <BarisAkun key={u.id} nama={u.nama} username={u.username} role={u.role} aktif={u.aktif} sendiri={u.id === user?.id}>
+            <button className="btn kecil" onClick={() => { setReset(u.id!); setSandi('') }}><Ikon nama="kunci" ukuran={16} /> Reset sandi</button>
             {u.id !== user?.id && (
-              <button className="btn kecil" onClick={() => db.users.update(u.id!, { aktif: !u.aktif })}>{u.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
+              <>
+                <button className="btn kecil" onClick={() => db.users.update(u.id!, { aktif: !u.aktif })}>{u.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                <button className="btn kecil bahaya" onClick={() => setHapus({ id: u.id!, nama: u.nama })}><Ikon nama="arsip" ukuran={16} /> Hapus</button>
+              </>
             )}
-          </div>
+          </BarisAkun>
         ))}
       </div>
+      {hapus && (
+        <Konfirmasi
+          judul="Hapus akun?"
+          teks={`Akun ${hapus.nama} dihapus permanen dan tidak bisa dipakai masuk lagi. Data warga dan pemeriksaan yang pernah dicatatnya tetap ada.`}
+          labelYa="Hapus akun"
+          bahaya
+          onYa={async () => { await db.users.delete(hapus.id); setHapus(null); toast('Akun dihapus') }}
+          onBatal={() => setHapus(null)}
+        />
+      )}
 
       {baru && (
         <Sheet judul="Akun baru" sub="Akun untuk kader atau admin" ikon="orang" onTutup={() => setBaru(false)}>
@@ -433,6 +442,27 @@ function Server() {
   )
 }
 
+/** Satu akun: identitas di atas, tombol aksi di bawah supaya tetap rapi di layar HP. */
+function BarisAkun({ nama, username, role, aktif, sendiri, children }: { nama: string; username: string; role: string; aktif: boolean; sendiri: boolean; children?: React.ReactNode }) {
+  return (
+    <div className={`akun ${aktif ? '' : 'nonaktif'}`}>
+      <div className="akun-atas">
+        <div className={`avatar ${aktif ? (role === 'admin' ? 'biru' : '') : 'krem'}`}>{inisial(nama)}</div>
+        <div className="akun-isi">
+          <b>{nama}</b>
+          <div className="akun-sub">
+            <span>@{username}</span>
+            <Chip warna={role === 'admin' ? 'biru' : 'mint'}>{role === 'admin' ? 'Admin' : 'Kader'}</Chip>
+            {!aktif && <Chip warna="merah">Nonaktif</Chip>}
+            {sendiri && <Chip warna="kuning">Anda</Chip>}
+          </div>
+        </div>
+      </div>
+      {children && <div className="akun-aksi">{children}</div>}
+    </div>
+  )
+}
+
 function ProfilCloud() {
   const { user } = useAuth()
   const toast = useToast()
@@ -442,6 +472,8 @@ function ProfilCloud() {
   const [f, setF] = useState({ nama: '', username: '', password: '', role: 'kader' as 'admin' | 'kader' })
   const [galatForm, setGalatForm] = useState<string | null>(null)
   const [proses, setProses] = useState(false)
+  const [hapus, setHapus] = useState<Profil | null>(null)
+  const [menghapus, setMenghapus] = useState(false)
   async function buat() {
     if (!f.nama.trim()) return setGalatForm('Nama wajib diisi.')
     setProses(true)
@@ -469,23 +501,41 @@ function ProfilCloud() {
     <div className="kartu">
       <JudulKartu ikon="warga" ekor={<button className="btn ajakan kecil" onClick={() => setBaru(true)}><Ikon nama="tambah" ukuran={18} /> Buat akun</button>}>Akun kader</JudulKartu>
       {galat && <div className="banner bahaya">{galat}</div>}
-      <div className="daftar">
-        {(daftar ?? []).map((p) => (
-          <div key={p.id} className="item baris-akun" style={{ cursor: 'default', flexWrap: 'wrap' }}>
-            <div className={`avatar ${p.aktif ? (p.role === 'admin' ? 'biru' : '') : 'krem'}`}>{inisial(p.nama || p.username)}</div>
-            <div className="isi">
-              <div className="nama">{p.nama || p.username}</div>
-              <div className="sub"><span>@{p.username}</span><Chip warna={p.role === 'admin' ? 'biru' : 'mint'}>{p.role === 'admin' ? 'Admin' : 'Kader'}</Chip>{!p.aktif && <Chip warna="merah">Nonaktif</Chip>}</div>
-            </div>
-            {p.username !== user?.username && (
-              <>
-                <button className="btn kecil" onClick={() => ubah(p, { role: p.role === 'admin' ? 'kader' : 'admin' })}>{p.role === 'admin' ? 'Jadikan Kader' : 'Jadikan Admin'}</button>
-                <button className="btn kecil" onClick={() => ubah(p, { aktif: !p.aktif })}>{p.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
-              </>
-            )}
-          </div>
-        ))}
+      <div className="daftar-akun">
+        {(daftar ?? []).map((p) => {
+          const sendiri = p.username === user?.username
+          return (
+            <BarisAkun key={p.id} nama={p.nama || p.username} username={p.username} role={p.role} aktif={p.aktif} sendiri={sendiri}>
+              {!sendiri && (
+                <>
+                  <button className="btn kecil" onClick={() => ubah(p, { role: p.role === 'admin' ? 'kader' : 'admin' })}>{p.role === 'admin' ? 'Jadikan Kader' : 'Jadikan Admin'}</button>
+                  <button className="btn kecil" onClick={() => ubah(p, { aktif: !p.aktif })}>{p.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                  <button className="btn kecil bahaya" onClick={() => setHapus(p)}><Ikon nama="arsip" ukuran={16} /> Hapus</button>
+                </>
+              )}
+            </BarisAkun>
+          )
+        })}
       </div>
+      {hapus && (
+        <Konfirmasi
+          judul="Hapus akun?"
+          teks={`Akun ${hapus.nama || hapus.username} dihapus permanen dari server dan tidak bisa dipakai masuk lagi. Data warga dan pemeriksaan yang pernah dicatatnya tetap ada. Nama pengguna @${hapus.username} bisa dipakai lagi.`}
+          labelYa={menghapus ? 'Menghapus…' : 'Hapus akun'}
+          bahaya
+          onYa={async () => {
+            if (menghapus) return
+            setMenghapus(true)
+            const g = await hapusAkun(hapus.id)
+            setMenghapus(false)
+            setHapus(null)
+            if (g) return toast(g)
+            toast('Akun dihapus')
+            await muat()
+          }}
+          onBatal={() => setHapus(null)}
+        />
+      )}
       {baru && (
         <Sheet judul="Akun baru" sub="Akun untuk kader atau admin" ikon="orang" onTutup={() => setBaru(false)}>
           <Field label="Nama lengkap"><input className="input" value={f.nama} onChange={(e) => setF({ ...f, nama: e.target.value })} /></Field>

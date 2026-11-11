@@ -173,6 +173,15 @@ export async function buatAkunKader(nama: string, username: string, password: st
   return null
 }
 
+/** Hapus akun lain (khusus admin) lewat fungsi `hapus_akun` di server. Mengembalikan pesan galat, atau null. */
+export async function hapusAkun(id: string): Promise<string | null> {
+  const { error } = await getKlien().rpc('hapus_akun', { target: id })
+  if (!error) return null
+  if (error.code === 'PGRST202' || /could not find the function/i.test(error.message))
+    return 'Server belum mendukung hapus akun. Jalankan ulang docs/supabase.sql di Supabase > SQL Editor.'
+  return error.message
+}
+
 /** Tautan sekali ketuk untuk menghubungkan HP kader. Hanya berisi alamat dan kunci publik. */
 export function buatTautan(): string | null {
   const k = getKonfig()

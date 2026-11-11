@@ -52,6 +52,23 @@ drop policy if exists profiles_ubah on public.profiles;
 create policy profiles_ubah on public.profiles for update to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
+-- Admin menghapus akun lain dari aplikasi. Menghapus dari auth.users butuh hak server,
+-- jadi dibungkus fungsi security definer yang memeriksa peran pemanggil lebih dulu.
+-- Profil ikut terhapus (on delete cascade); nama pengguna bisa dipakai lagi.
+create or replace function public.hapus_akun(target uuid) returns void
+language plpgsql security definer set search_path = public, auth as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Hanya admin yang boleh menghapus akun' using errcode = 'P0001';
+  end if;
+  if target = auth.uid() then
+    raise exception 'Tidak bisa menghapus akun sendiri' using errcode = 'P0001';
+  end if;
+  delete from auth.users where id = target;
+end $$;
+revoke all on function public.hapus_akun(uuid) from public, anon;
+grant execute on function public.hapus_akun(uuid) to authenticated;
+
 -- ============ Data aplikasi (satu tabel umum, kunci: tabel + id) ============
 create sequence if not exists public.records_seq;
 
