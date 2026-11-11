@@ -14,7 +14,7 @@ Dilakukan sekali oleh Admin. Tanpa ini, aplikasi tetap jalan penuh secara lokal 
 ## 3. Atur login
 1. **Authentication > Sign In / Providers > Email**: matikan **Confirm email**. Biarkan **Allow new users to sign up** menyala (dipakai aplikasi untuk membuat akun kader).
 2. **Authentication > Users > Add user > Create new user**: buat akun Admin pertama dengan email `namaanda@posyandu.local`, kata sandi, dan centang **Auto Confirm User**. Akun **pertama** otomatis menjadi Admin.
-3. Akun kader dibuat dari aplikasi oleh Admin (Lainnya > Akun kader > Buat akun kader). Kader masuk cukup dengan nama penggunanya.
+3. Akun kader dibuat dari aplikasi oleh Admin (Lainnya > Akun kader > Buat akun). Kader masuk cukup dengan nama penggunanya.
 
 Keamanan pendaftaran terbuka: siapa pun yang tahu alamat proyek bisa mencoba mendaftar, tetapi akun baru **nonaktif** dari server dan tidak bisa membaca atau menulis data apa pun sampai Admin mengaktifkannya. Aplikasi mengaktifkannya otomatis hanya untuk akun yang dibuat Admin.
 
@@ -23,13 +23,13 @@ Keamanan pendaftaran terbuka: siapa pun yang tahu alamat proyek bisa mencoba men
 2. Halaman login tidak punya form server. Admin menghubungkan perangkatnya lewat salah satu jalur ini:
    - **Disarankan, sekali build:** salin `.env.example` menjadi `.env`, isi dua nilai tadi, lalu `npm run build` dan taruh hasilnya di hosting statis (Netlify, GitHub Pages, dan sejenisnya). Semua HP yang membuka alamat itu otomatis terhubung ke server yang sama; kader cukup membuka alamatnya dan masuk. Tautan di langkah 4 tidak diperlukan.
    - **Tanpa build ulang:** buka aplikasi, masuk dengan akun lokal `admin` / `admin123`, buka Lainnya > Server bersama, tempel kedua nilai, **Simpan dan hubungkan**. Setelah itu masuk dengan akun Admin Supabase.
-3. Masuk sebagai Admin. Buat akun kader di Lainnya > Akun kader > **Buat akun kader**.
+3. Masuk sebagai Admin. Buat akun kader di Lainnya > Akun kader > **Buat akun**.
 4. Jika Anda tidak memakai jalur `.env`: Lainnya > Server bersama > **Salin tautan untuk HP kader**, kirim lewat WhatsApp. Kader membuka tautan, menyetujui, lalu masuk dengan akunnya tanpa mengetik alamat server.
 5. Di **satu** perangkat yang sudah berisi data lama: Lainnya > Server bersama > **Unggah semua data perangkat ini** (sekali saja). Perangkat lain mulai kosong dan menarik data otomatis.
 
 Catatan: HP yang membuka aplikasi tanpa tautan dan tanpa `.env` tidak terhubung ke server dan akan menampilkan login lokal. Itu sebabnya jalur `.env` lebih aman dari salah langkah.
 
-Lupa kata sandi kader: kader bisa menggantinya sendiri di Lainnya selama masih masuk. Jika sudah lupa, Admin tidak bisa mereset dari aplikasi (itu butuh kunci rahasia server). Cara termudah: buat akun baru dengan nama pengguna lain dan nonaktifkan yang lama, atau reset lewat Supabase Authentication > Users.
+Lupa kata sandi kader: kader bisa menggantinya sendiri di Lainnya selama masih masuk. Jika sudah lupa, Admin tidak bisa mereset dari aplikasi (itu butuh kunci rahasia server). Cara termudah: hapus akun lama di Lainnya > Akun kader > **Hapus**, lalu buat ulang dengan nama pengguna yang sama. Bisa juga reset lewat Supabase Authentication > Users.
 
 ## Batas paket gratis
 Angka di bawah dari pengetahuan umum dan **bisa berubah**; periksa supabase.com/pricing sebelum bergantung padanya.
@@ -58,3 +58,6 @@ Angka di bawah dari pengetahuan umum dan **bisa berubah**; periksa supabase.com/
 - Aturan di sisi server (tidak bisa dilewati lewat aplikasi): hanya akun aktif yang bisa membaca atau menulis; hanya Admin yang boleh mengubah pengaturan dan kategori serta menghapus warga dan kegiatan.
 - Saat terhubung, fitur pulihkan cadangan, data contoh, dan hapus massal dimatikan agar tidak menimpa data bersama.
 - Data yang tertinggal di HP kader setelah akunnya dinonaktifkan tetap ada di HP itu. Hapus data browser jika HP berpindah tangan.
+
+## Memperbarui skema
+Jika aplikasi diperbarui dan `docs/supabase.sql` ikut berubah (misalnya fitur hapus akun memakai fungsi `hapus_akun`), jalankan ulang seluruh isi berkas itu di **SQL Editor**. Skrip aman dijalankan berkali-kali dan tidak menghapus data.

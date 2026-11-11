@@ -119,7 +119,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .nav a svg { width: 22px; height: 22px; }
 .nav a.aktif { background: var(--kunyit); color: var(--tinta); font-weight: 800; }
 .nav a:active { transform: scale(.94); }
-.nav .merek, .nav .nav-bawah, .nav .nav-hias, .nav .nav-ruang { display: none; }
+.nav .merek, .nav .nav-bawah, .nav .nav-hias, .nav .nav-ruang, .nav .nav-bangau { display: none; }
 
 @media (min-width: 900px) {
   .app { display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: 28px; padding: 24px; }
@@ -141,7 +141,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .nav .nav-hias { display: block; position: absolute; left: 0; right: 0; bottom: 120px; height: 380px; pointer-events: none;
     background: var(--kawung) 0 0 / 50px 50px; opacity: .05;
     -webkit-mask: linear-gradient(transparent, #000 30%, #000 70%, transparent); mask: linear-gradient(transparent, #000 30%, #000 70%, transparent); }
-  .nav .nav-bangau { position: absolute; width: 130px; right: -4px; bottom: 230px; color: #ffffff33; pointer-events: none; }
+  .nav .nav-bangau { display: block; position: absolute; width: 130px; right: -4px; bottom: 230px; color: #ffffff33; pointer-events: none; }
   .nav .nav-bawah { display: grid; gap: 10px; position: relative; z-index: 1; }
 }
 
@@ -508,7 +508,8 @@ textarea.input { min-height: 96px; resize: vertical; }
 .aksi-bawah { position: sticky; bottom: 0; z-index: 1; background: #fff; display: flex; gap: 12px;
   margin: 8px -24px calc(-22px - env(safe-area-inset-bottom)); padding: 14px 24px calc(20px + env(safe-area-inset-bottom)); }
 @media (max-width: 600px) { .aksi-bawah { margin: 8px -18px calc(-18px - env(safe-area-inset-bottom)); padding: 12px 18px calc(16px + env(safe-area-inset-bottom)); } }
-.aksi-bawah .btn { flex: 1; }
+.aksi-bawah .btn { flex: 1; min-width: 0; }
+@media (max-width: 600px) { .aksi-bawah .btn { padding: 0 12px; font-size: 15.5px; white-space: normal; line-height: 1.2; text-align: center; gap: 6px; } }
 .hasil-otomatis { padding: 14px 16px; border-radius: 20px; background: var(--krem-2); margin: 4px 0 16px; }
 .hasil-otomatis > p { margin: 0 0 10px; font-size: 13px; font-weight: 800; letter-spacing: .1em; color: var(--redup); }
 .hasil-hitung { display: flex; gap: 8px; flex-wrap: wrap; }

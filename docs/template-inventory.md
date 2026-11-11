@@ -5,7 +5,7 @@ Status: **8 laporan sudah punya definisi**, tetapi PRD menyebut 8 template dan b
 
 | # | Kode | Sumber | Judul/kolom persis | Orientasi |
 |---|------|--------|--------------------|-----------|
-| 1 | sasaran-balita | format `lansia.pdf` (dipakai ulang) | NO, NAMA, NIK, TANGGAL LAHIR, LAKI-LAKI, PEREMPUAN. Kop: POSYANDU BANGAU / SASARAN USIA BALITA / RT.. DUSUN 5 WAY HUWI / JATI AGUNG LAM – SEL | Potret |
+| 1 | sasaran-balita | format `lansia.pdf` (dipakai ulang) | NO, NAMA, NIK, TANGGAL LAHIR, LAKI-LAKI, PEREMPUAN. Kop: POSYANDU BANGAU / SASARAN USIA BALITA / RT.. DUSUN 5 WAY HUWI / JATI AGUNG LAM - SEL | Potret |
 | 2 | sasaran-ibu | `mbg.pdf` (Bumil/Busui: Nama, Nik, Tgl. Lahir) | NO, NAMA, NIK, TANGGAL LAHIR; dua bagian Bumil dan Busui | Potret |
 | 3 | sasaran-sekolah-remaja | format `lansia.pdf` | sama dengan #1 | Potret |
 | 4 | sasaran-lansia | `lansia.pdf` | sama dengan #1, judul "SASARAN USIA LANSIA ( >60 tahun )" | Potret |
