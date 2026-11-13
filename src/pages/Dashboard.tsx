@@ -16,7 +16,7 @@ import { useWargaPlus } from '../lib/wargaData'
 
 export default function Dashboard() {
   const list = useKegiatanList()
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, isSuper } = useAuth()
   const p = usePengaturan()
   const kategori = useKategori()
   const sinkron = teksSinkron(useStatusSinkron())
@@ -79,7 +79,7 @@ export default function Dashboard() {
               ) : isAdmin ? (
                 <>
                   <Link className="btn utama" to="/warga/impor"><Ikon nama="unggah" ukuran={20} /> Impor data warga</Link>
-                  <Link className="btn" to="/pengaturan">Muat data contoh</Link>
+                  {isSuper && <Link className="btn" to="/pengaturan">Muat data contoh</Link>}
                 </>
               ) : (
                 <Link className="btn utama" to="/warga/baru"><Ikon nama="tambah" ukuran={20} /> Tambah warga</Link>

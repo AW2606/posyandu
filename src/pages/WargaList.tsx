@@ -25,7 +25,7 @@ export default function WargaList() {
   const semua = useWargaPlus(ref)
   const kategori = useKategori()
   const p = usePengaturan()
-  const { isAdmin } = useAuth()
+  const { isAdmin, isSuper } = useAuth()
   const [q, setQ] = useState('')
   const [kat, setKat] = useState('semua')
   const [rt, setRt] = useState('semua')
@@ -160,7 +160,7 @@ export default function WargaList() {
             {isAdmin && (
               <div className="baris" style={{ justifyContent: 'center', marginTop: 16 }}>
                 <Link className="btn utama" to="/warga/impor"><Ikon nama="unggah" ukuran={20} /> Impor CSV</Link>
-                <Link className="btn" to="/pengaturan">Muat data contoh</Link>
+                {isSuper && <Link className="btn" to="/pengaturan">Muat data contoh</Link>}
               </div>
             )}
           </Kosong>

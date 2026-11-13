@@ -55,9 +55,34 @@ Angka di bawah dari pengetahuan umum dan **bisa berubah**; periksa supabase.com/
 - Setiap HP menyimpan salinan lengkap dan tetap bisa dipakai tanpa internet. Perubahan dikirim saat ada koneksi, dan perubahan orang lain diambil tiap 30 detik selama aplikasi terbuka dan terlihat, serta saat kembali online.
 - Konflik: bila dua orang mengubah baris yang sama, yang **terakhir tiba di server menang**. Ini sengaja sederhana untuk jumlah kader yang sedikit.
 - Dua kader yang mendaftarkan orang yang sama pada kegiatan yang sama sambil offline akan menghasilkan satu kunjungan yang dipakai; yang bentrok dilewati dan dihitung di status sinkron.
-- Aturan di sisi server (tidak bisa dilewati lewat aplikasi): hanya akun aktif yang bisa membaca atau menulis; hanya Admin yang boleh mengubah pengaturan dan kategori serta menghapus warga dan kegiatan.
+- Aturan di sisi server (tidak bisa dilewati lewat aplikasi): hanya akun aktif yang bisa membaca atau menulis; hanya Admin yang boleh mengubah pengaturan dan kategori serta menghapus warga dan kegiatan; hanya **Super admin** yang boleh mengelola akun admin. Lihat bagian Peran di bawah.
 - Saat terhubung, fitur pulihkan cadangan, data contoh, dan hapus massal dimatikan agar tidak menimpa data bersama.
 - Data yang tertinggal di HP kader setelah akunnya dinonaktifkan tetap ada di HP itu. Hapus data browser jika HP berpindah tangan.
 
+## Peran
+| Peran | Untuk siapa | Wewenang |
+|---|---|---|
+| Super admin | Pengelola sistem, satu orang | Semua wewenang admin, ditambah server, riwayat perubahan, cadangan/pulihkan/hapus massal, serta membuat, mengubah, dan menghapus akun admin |
+| Admin | Pengurus Posyandu, bisa beberapa orang | Semua urusan Posyandu: identitas, kategori umur, ambang batas, membuat/mengaktifkan/menghapus akun **kader**, impor CSV, arsip dan hapus permanen warga, hapus kegiatan |
+| Kader | Petugas layanan | Pelayanan harian, tambah/ubah warga |
+
+- Akun pertama di proyek baru otomatis menjadi super admin.
+- Super admin terakhir tidak bisa dihapus, diturunkan, atau dinonaktifkan oleh siapa pun, termasuk lewat dashboard Supabase.
+- Admin bisa melihat daftar semua akun, tetapi tidak bisa mengubah atau menghapus akun admin lain maupun super admin, dan tidak bisa menaikkan siapa pun menjadi admin.
+
 ## Memperbarui skema
 Jika aplikasi diperbarui dan `docs/supabase.sql` ikut berubah (misalnya fitur hapus akun memakai fungsi `hapus_akun`), jalankan ulang seluruh isi berkas itu di **SQL Editor**. Skrip aman dijalankan berkali-kali dan tidak menghapus data.
+
+### Pembaruan peran Super admin (proyek yang sudah berjalan)
+1. Jalankan ulang seluruh `docs/supabase.sql` **sebelum** memasang versi aplikasi yang baru.
+2. Skrip otomatis menaikkan akun admin yang **paling awal terdaftar** (biasanya pembuat proyek) menjadi super admin, hanya bila belum ada super admin.
+3. Periksa hasilnya di SQL Editor:
+   ```sql
+   select username, role, aktif from public.profiles order by role;
+   ```
+   Pastikan akun Anda `superadmin`. Jika ternyata akun lain yang naik, perbaiki dengan (ganti nama penggunanya):
+   ```sql
+   update public.profiles set role = 'superadmin', aktif = true where username = 'nama_pengguna_anda';
+   update public.profiles set role = 'admin' where username = 'akun_yang_salah_naik';
+   ```
+4. Keluar lalu masuk lagi di aplikasi. Di menu Lainnya, akun Anda bertanda **Super admin**.

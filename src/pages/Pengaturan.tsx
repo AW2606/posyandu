@@ -4,8 +4,9 @@ import { Link } from 'react-router-dom'
 import { Chip, Field, Ikon, JudulKartu, KepalaHalaman, Konfirmasi, Logo, Sheet, inisial, useToast } from '../components/ui'
 import { FormServer } from '../components/FormServer'
 import { buatUser, gantiPassword, gantiPasswordCloud, useAuth } from '../lib/auth'
-import { buatAkunKader, buatTautan, getKlien, getSinkron, hapusAkun, useStatusSinkron, type Profil } from '../lib/cloud'
-import { BATAS_AUDIT, db, eksporSemua, impor, inisialisasi, simpanPengaturan, type AuditLog, type Pengaturan as TPengaturan, type Role } from '../lib/db'
+import { buatAkunKader, buatTautan, getKlien, getSinkron, hapusAkun, pesanServer, useStatusSinkron, type Profil } from '../lib/cloud'
+import { BATAS_AUDIT, catat, db, eksporSemua, getPengaturan, impor, inisialisasi, simpanPengaturan, type AuditLog, type Pengaturan as TPengaturan, type Role } from '../lib/db'
+import { bolehKelolaAkun, bolehLepasSuperAdmin, NAMA_PERAN, peranBolehDiberi } from '../lib/peran'
 import { unduhTeks } from '../lib/csv'
 import { usePengaturan, useKategori } from '../lib/hooks'
 import { muatDataContoh } from '../lib/seed'
@@ -14,10 +15,15 @@ import { KATEGORI_DEFAULT } from '../lib/age'
 import { AMBANG_DEFAULT } from '../lib/health'
 
 export default function Pengaturan() {
-  const { user, isAdmin, cloud } = useAuth()
+  const { user, isAdmin, isSuper, cloud } = useAuth()
+  const sub = isSuper
+    ? 'Kata sandi, akun, identitas Posyandu, ambang batas, server, cadangan data, dan riwayat perubahan.'
+    : isAdmin
+      ? 'Kata sandi, akun kader, identitas Posyandu, kategori umur, dan ambang batas.'
+      : 'Ganti kata sandi akun Anda.'
   return (
     <>
-      <KepalaHalaman label="Pengaturan" judul="Lainnya" sub={isAdmin ? 'Kata sandi, identitas Posyandu, akun kader, dan cadangan data.' : 'Ganti kata sandi akun Anda.'} />
+      <KepalaHalaman label="Pengaturan" judul="Lainnya" sub={sub} />
       <div className="kolom-masonry">
         <KataSandi id={user!.id} />
         {isAdmin ? (
@@ -25,10 +31,18 @@ export default function Pengaturan() {
             {cloud ? <ProfilCloud /> : <Akun />}
             <Identitas />
             <Kategori />
-            <Data />
-            <Server />
             <Ambang />
-            <Audit />
+            {/* khusus super admin (pengelola sistem): server, cadangan data, riwayat perubahan */}
+            {isSuper && (
+              <>
+                <Data />
+                <Server />
+                <Audit />
+              </>
+            )}
+            {!isSuper && (
+              <div className="banner info"><Ikon nama="info" ukuran={22} /> Server, cadangan data, dan riwayat perubahan diatur oleh Super admin (pengelola sistem).</div>
+            )}
           </>
         ) : (
           <div className="banner info"><Ikon nama="info" ukuran={22} /> Pengaturan lain hanya bisa diubah Admin.</div>
@@ -112,7 +126,12 @@ function Identitas() {
       {teks('ketua', 'Nama Ketua Posyandu')}
       {teks('kader', 'Nama Kader penandatangan')}
       {teks('bidan', 'Nama Bidan')}
-      <button className="btn utama" onClick={async () => { await simpanPengaturan(d); toast('Pengaturan disimpan') }}>Simpan</button>
+      <button className="btn utama" onClick={async () => {
+        // simpan identitas saja; ambang memakai nilai terbaru supaya tidak tertimpa salinan lama
+        const kini = await getPengaturan()
+        await simpanPengaturan({ ...d, ambang: kini.ambang })
+        toast('Pengaturan disimpan')
+      }}>Simpan</button>
     </div>
   )
 }
@@ -148,7 +167,7 @@ function Kategori() {
       })}
       {galat && <div className="banner peringatan">{galat}</div>}
       <div className="baris">
-        <button className="btn utama" disabled={!!galat} onClick={async () => { await db.kategori.bulkPut(d); toast('Kategori disimpan') }}>Simpan</button>
+        <button className="btn utama" disabled={!!galat} onClick={async () => { await db.kategori.bulkPut(d); await catat('ubah', 'kategori', 'Batas umur kategori diubah'); toast('Kategori disimpan') }}>Simpan</button>
         <button className="btn" onClick={() => setD(KATEGORI_DEFAULT)}>Kembalikan bawaan</button>
       </div>
     </div>
@@ -191,7 +210,13 @@ function Ambang() {
         </Field>
       ))}
       <div className="baris">
-        <button className="btn utama" onClick={async () => { await simpanPengaturan(d); toast('Ambang disimpan') }}>Simpan</button>
+        <button className="btn utama" onClick={async () => {
+          // simpan ambang saja di atas pengaturan terbaru
+          const kini = await getPengaturan()
+          await simpanPengaturan({ ...kini, ambang: d.ambang })
+          await catat('ubah', 'ambang batas', 'Ambang batas pemeriksaan diubah')
+          toast('Ambang disimpan')
+        }}>Simpan</button>
         <button className="btn" onClick={() => setD((x) => ({ ...x, ambang: AMBANG_DEFAULT }))}>Kembalikan bawaan</button>
       </div>
     </div>
@@ -209,29 +234,42 @@ function Akun() {
   const [sandi, setSandi] = useState('')
   const [hapus, setHapus] = useState<{ id: number; nama: string } | null>(null)
 
+  const pilihanPeran = peranBolehDiberi(user?.role)
+  const lepasAman = (id: number) => bolehLepasSuperAdmin(users.map((u) => ({ id: u.id!, role: u.role, aktif: u.aktif })), id)
+
   async function tambah() {
     if (!f.nama.trim() || !f.username.trim() || f.password.length < 6) return setGalat('Lengkapi data. Kata sandi minimal 6 karakter.')
+    if (!pilihanPeran.includes(f.role)) return setGalat('Anda tidak boleh membuat akun dengan peran itu.')
     if (await db.users.where('username').equals(f.username.trim().toLowerCase()).first()) return setGalat('Nama pengguna sudah dipakai.')
     await buatUser(f.nama.trim(), f.username, f.password, f.role)
+    await catat('tambah', 'akun', `@${f.username.trim().toLowerCase()} (${NAMA_PERAN[f.role]})`)
     setBaru(false); setF({ nama: '', username: '', password: '', role: 'kader' }); setGalat(null)
     toast('Akun dibuat')
   }
 
   return (
     <div className="kartu">
-      <JudulKartu ikon="warga" ekor={<button className="btn ajakan kecil" onClick={() => setBaru(true)}><Ikon nama="tambah" ukuran={18} /> Buat akun</button>}>Akun kader</JudulKartu>
+      <JudulKartu ikon="warga" ekor={<button className="btn ajakan kecil" onClick={() => setBaru(true)}><Ikon nama="tambah" ukuran={18} /> Buat akun</button>}>{pilihanPeran.includes('admin') ? 'Akun pengguna' : 'Akun kader'}</JudulKartu>
       <div className="daftar-akun">
-        {users.map((u) => (
-          <BarisAkun key={u.id} nama={u.nama} username={u.username} role={u.role} aktif={u.aktif} sendiri={u.id === user?.id}>
-            <button className="btn kecil" onClick={() => { setReset(u.id!); setSandi('') }}><Ikon nama="kunci" ukuran={16} /> Reset sandi</button>
-            {u.id !== user?.id && (
-              <>
-                <button className="btn kecil" onClick={() => db.users.update(u.id!, { aktif: !u.aktif })}>{u.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
-                <button className="btn kecil bahaya" onClick={() => setHapus({ id: u.id!, nama: u.nama })}><Ikon nama="arsip" ukuran={16} /> Hapus</button>
-              </>
-            )}
-          </BarisAkun>
-        ))}
+        {users.map((u) => {
+          const sendiri = u.id === user?.id
+          const boleh = !sendiri && bolehKelolaAkun(user?.role, u.role)
+          return (
+            <BarisAkun key={u.id} nama={u.nama} username={u.username} role={u.role} aktif={u.aktif} sendiri={sendiri}>
+              {(sendiri || boleh) && <button className="btn kecil" onClick={() => { setReset(u.id!); setSandi('') }}><Ikon nama="kunci" ukuran={16} /> Reset sandi</button>}
+              {boleh && (
+                <>
+                  <button className="btn kecil" onClick={async () => {
+                    if (u.aktif && !lepasAman(u.id!)) return toast('Super admin terakhir tidak bisa dinonaktifkan')
+                    await db.users.update(u.id!, { aktif: !u.aktif })
+                    await catat(u.aktif ? 'arsip' : 'pulihkan', 'akun', `@${u.username} ${u.aktif ? 'dinonaktifkan' : 'diaktifkan'}`)
+                  }}>{u.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                  <button className="btn kecil bahaya" onClick={() => setHapus({ id: u.id!, nama: u.nama })}><Ikon nama="arsip" ukuran={16} /> Hapus</button>
+                </>
+              )}
+            </BarisAkun>
+          )
+        })}
       </div>
       {hapus && (
         <Konfirmasi
@@ -239,7 +277,13 @@ function Akun() {
           teks={`Akun ${hapus.nama} dihapus permanen dan tidak bisa dipakai masuk lagi. Data warga dan pemeriksaan yang pernah dicatatnya tetap ada.`}
           labelYa="Hapus akun"
           bahaya
-          onYa={async () => { await db.users.delete(hapus.id); setHapus(null); toast('Akun dihapus') }}
+          onYa={async () => {
+            if (!lepasAman(hapus.id)) { setHapus(null); return toast('Super admin terakhir tidak bisa dihapus') }
+            const u = users.find((x) => x.id === hapus.id)
+            await db.users.delete(hapus.id)
+            await catat('hapus', 'akun', `@${u?.username ?? hapus.nama}`)
+            setHapus(null); toast('Akun dihapus')
+          }}
           onBatal={() => setHapus(null)}
         />
       )}
@@ -249,11 +293,13 @@ function Akun() {
           <Field label="Nama"><input className="input" value={f.nama} onChange={(e) => setF({ ...f, nama: e.target.value })} /></Field>
           <Field label="Nama pengguna"><input className="input" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} /></Field>
           <Field label="Kata sandi awal"><input className="input" type="text" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>
-          <Field label="Peran">
-            <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Role })}>
-              <option value="kader">Kader</option><option value="admin">Admin</option>
-            </select>
-          </Field>
+          {pilihanPeran.length > 1 && (
+            <Field label="Peran">
+              <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Role })}>
+                {pilihanPeran.map((r) => <option key={r} value={r}>{NAMA_PERAN[r]}</option>)}
+              </select>
+            </Field>
+          )}
           {galat && <div className="banner bahaya">{galat}</div>}
           <div className="aksi-bawah"><button className="btn" onClick={() => setBaru(false)}>Batal</button><button className="btn utama" onClick={tambah}>Buat akun</button></div>
         </Sheet>
@@ -263,7 +309,11 @@ function Akun() {
           <Field label="Kata sandi baru"><input className="input" type="text" value={sandi} onChange={(e) => setSandi(e.target.value)} /></Field>
           <div className="aksi-bawah">
             <button className="btn" onClick={() => setReset(null)}>Batal</button>
-            <button className="btn utama" disabled={sandi.length < 6} onClick={async () => { await gantiPassword(reset, sandi); setReset(null); toast('Kata sandi direset') }}>Simpan</button>
+            <button className="btn utama" disabled={sandi.length < 6} onClick={async () => {
+              await gantiPassword(reset, sandi)
+              await catat('ubah', 'akun', `Kata sandi @${users.find((x) => x.id === reset)?.username ?? ''} direset`)
+              setReset(null); toast('Kata sandi direset')
+            }}>Simpan</button>
           </div>
         </Sheet>
       )}
@@ -458,12 +508,12 @@ function BarisAkun({ nama, username, role, aktif, sendiri, children }: { nama: s
   return (
     <div className={`akun ${aktif ? '' : 'nonaktif'}`}>
       <div className="akun-atas">
-        <div className={`avatar ${aktif ? (role === 'admin' ? 'biru' : '') : 'krem'}`}>{inisial(nama)}</div>
+        <div className={`avatar ${aktif ? (role === 'superadmin' ? 'ungu' : role === 'admin' ? 'biru' : '') : 'krem'}`}>{inisial(nama)}</div>
         <div className="akun-isi">
           <b>{nama}</b>
           <div className="akun-sub">
             <span>@{username}</span>
-            <Chip warna={role === 'admin' ? 'biru' : 'mint'}>{role === 'admin' ? 'Admin' : 'Kader'}</Chip>
+            <Chip warna={role === 'superadmin' ? 'ungu' : role === 'admin' ? 'biru' : 'mint'}>{NAMA_PERAN[role as Role] ?? 'Kader'}</Chip>
             {!aktif && <Chip warna="merah">Nonaktif</Chip>}
             {sendiri && <Chip warna="kuning">Anda</Chip>}
           </div>
@@ -485,12 +535,15 @@ function ProfilCloud() {
   const [proses, setProses] = useState(false)
   const [hapus, setHapus] = useState<Profil | null>(null)
   const [menghapus, setMenghapus] = useState(false)
+  const pilihanPeran = peranBolehDiberi(user?.role)
   async function buat() {
     if (!f.nama.trim()) return setGalatForm('Nama wajib diisi.')
+    if (!pilihanPeran.includes(f.role)) return setGalatForm('Anda tidak boleh membuat akun dengan peran itu.')
     setProses(true)
     const g = await buatAkunKader(f.nama, f.username, f.password, f.role)
     setProses(false)
     if (g) return setGalatForm(g)
+    await catat('tambah', 'akun', `@${f.username.trim().toLowerCase()} (${NAMA_PERAN[f.role]})`)
     setBaru(false)
     setGalatForm(null)
     setF({ nama: '', username: '', password: '', role: 'kader' })
@@ -503,24 +556,36 @@ function ProfilCloud() {
     else setDaftar(data as Profil[])
   }
   useEffect(() => { void muat() }, [])
-  async function ubah(p: Profil, patch: Partial<Profil>) {
+  async function ubah(p: Profil, patch: Partial<Profil>, keterangan: string) {
+    // ditolak juga oleh server bila peran tidak berhak; pemeriksaan di sini hanya supaya pesannya jelas
+    if ((patch.aktif === false || (patch.role && patch.role !== 'superadmin')) && !bolehLepasSuperAdmin(daftar ?? [], p.id))
+      return toast('Super admin terakhir tidak bisa diturunkan atau dinonaktifkan')
     const { error } = await getKlien().from('profiles').update(patch).eq('id', p.id)
-    if (error) toast(error.message)
-    else await muat()
+    if (error) return toast(pesanServer(error.message))
+    await catat('ubah', 'akun', `@${p.username} ${keterangan}`)
+    await muat()
   }
   return (
     <div className="kartu">
-      <JudulKartu ikon="warga" ekor={<button className="btn ajakan kecil" onClick={() => setBaru(true)}><Ikon nama="tambah" ukuran={18} /> Buat akun</button>}>Akun kader</JudulKartu>
+      <JudulKartu ikon="warga" ekor={<button className="btn ajakan kecil" onClick={() => setBaru(true)}><Ikon nama="tambah" ukuran={18} /> Buat akun</button>}>{pilihanPeran.includes('admin') ? 'Akun pengguna' : 'Akun kader'}</JudulKartu>
       {galat && <div className="banner bahaya">{galat}</div>}
       <div className="daftar-akun">
         {(daftar ?? []).map((p) => {
           const sendiri = p.username === user?.username
+          const boleh = !sendiri && bolehKelolaAkun(user?.role, p.role)
+          // hanya super admin yang bisa menaikkan/menurunkan antara kader dan admin
+          const bolehGantiPeran = boleh && pilihanPeran.includes('admin') && p.role !== 'superadmin'
           return (
             <BarisAkun key={p.id} nama={p.nama || p.username} username={p.username} role={p.role} aktif={p.aktif} sendiri={sendiri}>
-              {!sendiri && (
+              {boleh && (
                 <>
-                  <button className="btn kecil" onClick={() => ubah(p, { role: p.role === 'admin' ? 'kader' : 'admin' })}>{p.role === 'admin' ? 'Jadikan Kader' : 'Jadikan Admin'}</button>
-                  <button className="btn kecil" onClick={() => ubah(p, { aktif: !p.aktif })}>{p.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                  {bolehGantiPeran && (
+                    <button className="btn kecil" onClick={() => {
+                      const r: Role = p.role === 'admin' ? 'kader' : 'admin'
+                      void ubah(p, { role: r }, `dijadikan ${NAMA_PERAN[r]}`)
+                    }}>{p.role === 'admin' ? 'Jadikan Kader' : 'Jadikan Admin'}</button>
+                  )}
+                  <button className="btn kecil" onClick={() => ubah(p, { aktif: !p.aktif }, p.aktif ? 'dinonaktifkan' : 'diaktifkan')}>{p.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
                   <button className="btn kecil bahaya" onClick={() => setHapus(p)}><Ikon nama="arsip" ukuran={16} /> Hapus</button>
                 </>
               )}
@@ -536,11 +601,13 @@ function ProfilCloud() {
           bahaya
           onYa={async () => {
             if (menghapus) return
+            if (!bolehLepasSuperAdmin(daftar ?? [], hapus.id)) { setHapus(null); return toast('Super admin terakhir tidak bisa dihapus') }
             setMenghapus(true)
             const g = await hapusAkun(hapus.id)
             setMenghapus(false)
             setHapus(null)
             if (g) return toast(g)
+            await catat('hapus', 'akun', `@${hapus.username}`)
             toast('Akun dihapus')
             await muat()
           }}
@@ -552,11 +619,13 @@ function ProfilCloud() {
           <Field label="Nama lengkap"><input className="input" value={f.nama} onChange={(e) => setF({ ...f, nama: e.target.value })} /></Field>
           <Field label="Nama pengguna" petunjuk="Dipakai untuk masuk. Huruf kecil, angka, titik, garis bawah, strip."><input className="input" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value.toLowerCase() })} /></Field>
           <Field label="Kata sandi awal" petunjuk="Minimal 6 karakter. Kader bisa menggantinya sendiri di menu Lainnya."><input className="input" type="text" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>
-          <Field label="Peran">
-            <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as 'admin' | 'kader' })}>
-              <option value="kader">Kader</option><option value="admin">Admin</option>
-            </select>
-          </Field>
+          {pilihanPeran.length > 1 && (
+            <Field label="Peran">
+              <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as 'admin' | 'kader' })}>
+                {pilihanPeran.map((r) => <option key={r} value={r}>{NAMA_PERAN[r]}</option>)}
+              </select>
+            </Field>
+          )}
           {galatForm && <div className="banner bahaya">{galatForm}</div>}
           <div className="aksi-bawah"><button className="btn" onClick={() => setBaru(false)}>Batal</button><button className="btn utama" onClick={buat} disabled={proses}>{proses ? 'Membuat…' : 'Buat akun'}</button></div>
         </Sheet>

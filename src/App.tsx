@@ -4,6 +4,7 @@ import { Bangau, Ikon, Merek, inisial } from './components/ui'
 import { pastikanAdminAwal, useAuth } from './lib/auth'
 import { adaCloud, useStatusSinkron } from './lib/cloud'
 import { inisialisasi } from './lib/db'
+import { NAMA_PERAN, pengurus } from './lib/peran'
 import { salam, teksSinkron } from './lib/tampilan'
 import Dashboard from './pages/Dashboard'
 import KegiatanDetail from './pages/KegiatanDetail'
@@ -53,7 +54,8 @@ export default function App() {
     )
 
   const st = teksSinkron(sinkron)
-  const peran = user.role === 'admin' ? 'Admin' : 'Kader'
+  const peran = NAMA_PERAN[user.role] ?? 'Kader'
+  const bolehPengurus = pengurus(user.role)
   const warnaTitik = st.warna === 'hijau' ? '#2E8B6A' : st.warna === 'kuning' ? '#E09A1B' : '#E46F4C'
 
   return (
@@ -116,9 +118,9 @@ export default function App() {
             <Route path="/warga" element={<WargaList />} />
             <Route path="/warga/baru" element={<WargaForm />} />
             {/* Impor massal khusus admin, sama seperti menu di Lainnya. Kader yang membuka URL-nya dialihkan. */}
-            <Route path="/warga/impor" element={user.role === 'admin' ? <WargaImpor /> : <Navigate to="/warga" replace />} />
-            {/* Arsip warga (pulihkan / hapus permanen) khusus admin. */}
-            <Route path="/warga/arsip" element={user.role === 'admin' ? <WargaArsip /> : <Navigate to="/warga" replace />} />
+            <Route path="/warga/impor" element={bolehPengurus ? <WargaImpor /> : <Navigate to="/warga" replace />} />
+            {/* Arsip warga khusus admin dan super admin; hapus permanen di dalamnya khusus super admin. */}
+            <Route path="/warga/arsip" element={bolehPengurus ? <WargaArsip /> : <Navigate to="/warga" replace />} />
             <Route path="/warga/:id" element={<WargaDetail />} />
             <Route path="/warga/:id/ubah" element={<WargaForm />} />
             <Route path="/tindak-lanjut" element={<TindakLanjut />} />

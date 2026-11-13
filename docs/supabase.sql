@@ -2,16 +2,24 @@
 -- Jalankan sekali di Supabase > SQL Editor > New query > Run.
 -- Belum diuji pada proyek Supabase sungguhan. Jalankan di proyek baru dan baca pesan galatnya.
 
--- ============ Profil akun (peran Admin/Kader) ============
+-- ============ Profil akun (peran Super admin / Admin / Kader) ============
+-- superadmin : pengelola sistem (satu orang). Satu-satunya yang boleh mengelola akun admin;
+--              di aplikasi juga memegang server, riwayat perubahan, dan cadangan data.
+-- admin      : pengurus Posyandu. Semua urusan Posyandu: identitas, ambang, kategori, akun kader,
+--              arsip dan hapus permanen warga, hapus kegiatan.
+-- kader      : pelayanan harian.
 create table if not exists public.profiles (
   id        uuid primary key references auth.users(id) on delete cascade,
   username  text not null,
   nama      text not null default '',
-  role      text not null default 'kader' check (role in ('admin', 'kader')),
+  role      text not null default 'kader' check (role in ('superadmin', 'admin', 'kader')),
   aktif     boolean not null default true
 );
+-- proyek lama: perbarui batasan peran supaya menerima 'superadmin'
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check check (role in ('superadmin', 'admin', 'kader'));
 
--- Setiap akun baru otomatis punya profil. Akun PERTAMA menjadi admin dan aktif.
+-- Setiap akun baru otomatis punya profil. Akun PERTAMA menjadi super admin dan aktif.
 -- Akun berikutnya menjadi kader dan NONAKTIF sampai admin mengaktifkannya, sehingga orang luar
 -- yang mendaftar sendiri tidak bisa membaca atau menulis data apa pun.
 create or replace function public.handle_new_user() returns trigger
@@ -24,7 +32,7 @@ begin
     new.id,
     split_part(new.email, '@', 1),
     coalesce(nullif(new.raw_user_meta_data ->> 'nama', ''), split_part(new.email, '@', 1)),
-    case when pertama then 'admin' else 'kader' end,
+    case when pertama then 'superadmin' else 'kader' end,
     pertama
   );
   return new;
@@ -39,18 +47,54 @@ language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.profiles where id = auth.uid() and aktif)
 $$;
 
+-- admin ATAU super admin (wewenang pengurus)
 create or replace function public.is_admin() returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and aktif and role = 'admin')
+  select exists (select 1 from public.profiles where id = auth.uid() and aktif and role in ('admin', 'superadmin'))
+$$;
+
+-- khusus super admin
+create or replace function public.is_super() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and aktif and role = 'superadmin')
 $$;
 
 alter table public.profiles enable row level security;
 drop policy if exists profiles_baca on public.profiles;
 create policy profiles_baca on public.profiles for select to authenticated
   using (id = auth.uid() or public.is_admin());
+-- Super admin boleh mengubah akun siapa pun. Admin hanya akun kader, dan hasilnya tetap kader
+-- (admin tidak bisa menaikkan siapa pun menjadi admin/super admin, atau menyentuh akun admin lain).
 drop policy if exists profiles_ubah on public.profiles;
 create policy profiles_ubah on public.profiles for update to authenticated
-  using (public.is_admin()) with check (public.is_admin());
+  using (public.is_super() or (public.is_admin() and role = 'kader'))
+  with check (public.is_super() or (public.is_admin() and role = 'kader'));
+
+-- Sistem tidak boleh kehilangan super admin terakhir (diturunkan, dinonaktifkan, atau dihapus).
+create or replace function public.profiles_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.role = 'superadmin'
+     and (tg_op = 'DELETE' or new.role <> 'superadmin' or not new.aktif)
+     and not exists (select 1 from public.profiles where id <> old.id and role = 'superadmin' and aktif) then
+    raise exception 'Super admin terakhir tidak bisa dihapus, diturunkan, atau dinonaktifkan' using errcode = 'P0001';
+  end if;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end $$;
+
+drop trigger if exists profiles_guard_trg on public.profiles;
+create trigger profiles_guard_trg before update or delete on public.profiles
+  for each row execute function public.profiles_guard();
+
+-- Peralihan proyek lama: bila belum ada super admin, akun admin yang PALING AWAL terdaftar
+-- (biasanya pembuat proyek) dinaikkan menjadi super admin. Tidak berbuat apa-apa bila sudah ada.
+update public.profiles set role = 'superadmin', aktif = true
+where not exists (select 1 from public.profiles where role = 'superadmin')
+  and id = (
+    select p.id from public.profiles p join auth.users u on u.id = p.id
+    where p.role = 'admin' order by u.created_at limit 1
+  );
 
 -- Admin menghapus akun lain dari aplikasi. Menghapus dari auth.users butuh hak server,
 -- jadi dibungkus fungsi security definer yang memeriksa peran pemanggil lebih dulu.
@@ -63,6 +107,9 @@ begin
   end if;
   if target = auth.uid() then
     raise exception 'Tidak bisa menghapus akun sendiri' using errcode = 'P0001';
+  end if;
+  if not public.is_super() and exists (select 1 from public.profiles where id = target and role <> 'kader') then
+    raise exception 'Hanya super admin yang boleh menghapus akun admin' using errcode = 'P0001';
   end if;
   delete from auth.users where id = target;
 end $$;
@@ -86,8 +133,9 @@ create table if not exists public.records (
 create index if not exists records_seq_idx on public.records (seq);
 
 -- Nomor urut diberikan server setiap baris ditulis; klien menarik berdasarkan nomor ini.
--- Aturan yang tidak bisa dilewati lewat aplikasi:
---   pengaturan dan kategori hanya boleh diubah admin; warga dan kegiatan hanya boleh dihapus admin;
+-- Aturan yang tidak bisa dilewati lewat aplikasi ("admin" di bawah = admin atau super admin):
+--   pengaturan (identitas, ambang batas) dan kategori umur hanya boleh diubah admin;
+--   warga dan kegiatan hanya boleh dihapus admin;
 --   mengarsipkan/memulihkan warga (mengubah data.aktif) hanya boleh admin.
 create or replace function public.records_guard() returns trigger
 language plpgsql security definer set search_path = public as $$

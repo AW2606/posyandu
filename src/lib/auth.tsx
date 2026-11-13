@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useNavigate } from 'react-router-dom'
 import { adaCloud, ambilProfil, emailDariUsername, getKlien, hapusProfilCache, mulaiSinkron } from './cloud'
 import { db, setAuditUser, type Role } from './db'
+import { pengurus, superAdmin } from './peran'
 import { bacaAktivitas, catatAktivitas, hapusAktivitas, sesiKedaluwarsa, setAlasanKeluar } from './sesi'
 
 const PESAN_IDLE = 'Sesi berakhir karena tidak ada aktivitas selama 30 menit. Silakan masuk lagi.'
@@ -58,10 +59,19 @@ export async function gantiPasswordCloud(password: string): Promise<string | nul
   return error ? error.message : null
 }
 
-/** Akun awal supaya aplikasi bisa dibuka pertama kali. Segera ganti kata sandinya. */
+/**
+ * Akun awal supaya aplikasi bisa dibuka pertama kali (super admin). Segera ganti kata sandinya.
+ * Perangkat lama yang belum punya super admin: admin pertama (akun awal) dinaikkan jadi super admin.
+ */
 export async function pastikanAdminAwal(): Promise<void> {
   if (adaCloud()) return
-  if ((await db.users.count()) === 0) await buatUser('Admin Posyandu', 'admin', 'admin123', 'admin')
+  if ((await db.users.count()) === 0) {
+    await buatUser('Admin Posyandu', 'admin', 'admin123', 'superadmin')
+    return
+  }
+  if (await db.users.filter((u) => u.role === 'superadmin').first()) return
+  const pertama = (await db.users.filter((u) => u.role === 'admin').toArray()).sort((a, b) => a.id! - b.id!)[0]
+  if (pertama) await db.users.update(pertama.id!, { role: 'superadmin', aktif: true })
 }
 
 interface AuthCtx {
@@ -70,7 +80,10 @@ interface AuthCtx {
   cloud: boolean
   login: (username: string, password: string) => Promise<string | null>
   logout: () => void
+  /** admin atau super admin */
   isAdmin: boolean
+  /** khusus super admin (pemilik sistem) */
+  isSuper: boolean
 }
 
 const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx)
@@ -213,7 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [akhiriSesi])
 
   const value = useMemo(
-    () => ({ user, siap, cloud, login, logout, isAdmin: user?.role === 'admin' }),
+    () => ({ user, siap, cloud, login, logout, isAdmin: pengurus(user?.role), isSuper: superAdmin(user?.role) }),
     [user, siap, cloud, login, logout],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

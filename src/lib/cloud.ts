@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
-import { db } from './db'
+import { db, type Role } from './db'
 import { buatSinkron, type BarisTarik, type Remote, type Sinkron, type StatusSinkron } from './sync'
 
 const KUNCI = 'posyandu.supabase'
@@ -110,7 +110,7 @@ export interface Profil {
   id: string
   username: string
   nama: string
-  role: 'admin' | 'kader'
+  role: Role
   aktif: boolean
 }
 
@@ -179,7 +179,12 @@ export async function hapusAkun(id: string): Promise<string | null> {
   if (!error) return null
   if (error.code === 'PGRST202' || /could not find the function/i.test(error.message))
     return 'Server belum mendukung hapus akun. Jalankan ulang docs/supabase.sql di Supabase > SQL Editor.'
-  return error.message
+  return pesanServer(error.message)
+}
+
+/** Pesan penolakan dari server (aturan peran) sudah berbahasa Indonesia; galat lain diberi awalan. */
+export function pesanServer(m: string): string {
+  return /^(Hanya|Tidak bisa|Super admin)/.test(m) ? m : `Ditolak server: ${m}`
 }
 
 /** Tautan sekali ketuk untuk menghubungkan HP kader. Hanya berisi alamat dan kunci publik. */

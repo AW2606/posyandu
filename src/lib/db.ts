@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import { KATEGORI_DEFAULT, type KategoriConfig } from './age'
 import { AMBANG_DEFAULT, type Ambang, type JK } from './health'
 
-export type Role = 'admin' | 'kader'
+export type Role = 'superadmin' | 'admin' | 'kader'
 
 export interface User {
   id?: number
@@ -329,7 +329,7 @@ function namaRingkas(nama: string[]): string {
 
 /**
  * Hapus satu atau beberapa warga beserta seluruh datanya (kunjungan, pemeriksaan, imunisasi,
- * kehamilan, status, obat). Tidak bisa dibatalkan. Khusus admin; di mode server aturan ini juga ditegakkan server.
+ * kehamilan, status, obat). Tidak bisa dibatalkan. Khusus admin dan super admin; di mode server aturan ini juga ditegakkan server.
  */
 export async function hapusWargaPermanen(id: number | number[]): Promise<number> {
   const ws = (await db.warga.bulkGet(daftarId(id))).filter((w): w is Warga => !!w)
