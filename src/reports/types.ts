@@ -10,6 +10,8 @@ export interface Kolom {
   rata?: 'kiri' | 'tengah'
   /** judul kelompok di atas beberapa kolom berurutan (mis. KUNJUNGAN) */
   kelompok?: string
+  /** judul di atas `kelompok` (tingkat ketiga), mis. "Jumlah sasaran" > "Datang" > "Ibu hamil" */
+  induk?: string
 }
 
 export type Baris = Sel[] | { grup: string }
@@ -20,8 +22,8 @@ export interface Bagian {
   baris: Baris[]
   /** isi baris kosong sampai jumlah ini, seperti kertas template */
   minBaris?: number
-  /** font tabel lebih kecil untuk tabel lebar */
-  rapat?: boolean
+  /** font tabel lebih kecil untuk tabel lebar; 'sangat' untuk tabel rekap dengan puluhan kolom */
+  rapat?: boolean | 'sangat'
 }
 
 export interface HasilLaporan {

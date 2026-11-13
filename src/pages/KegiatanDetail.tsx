@@ -255,6 +255,8 @@ export default function KegiatanDetail() {
           kunjungan={aktif}
           warga={aktifW.w}
           kode={aktifW.kode}
+          hamil={aktifW.hamil}
+          menyusui={aktifW.menyusui}
           ada={periksaMap.get(aktif.id!)}
           onTutup={() => setBuka(null)}
           onBerikutnya={berikutnya}

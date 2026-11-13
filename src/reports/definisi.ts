@@ -10,6 +10,8 @@ import {
   statusGizi,
   tekananDarahBerisiko,
 } from '../lib/health'
+import { kartuIbuHamil, kartuNifas } from './kartuIbu'
+import { DAFTAR_REKAP } from './rekap'
 import type { Baris, DefinisiLaporan, HasilLaporan, KonteksLaporan, ParamLaporan } from './types'
 
 // Satu template manual = satu definisi di sini. Judul kolom ditulis persis seperti template.
@@ -161,7 +163,7 @@ const BULAN_SINGKAT = ['JAN', 'FEB', 'MAR', 'APRL', 'MEI', 'JUNI', 'JULI', 'AGST
 const presensiDewasaLansia: DefinisiLaporan = {
   kode: 'presensi-dewasa-lansia',
   nama: 'Data Sasaran Dewasa Lansia (kunjungan bulanan)',
-  deskripsi: 'Kehadiran dewasa dan lansia per bulan satu tahun, dengan penanda T pada tekanan darah berisiko.',
+  deskripsi: 'Kehadiran dewasa dan lansia per bulan satu tahun, dengan penanda T (tekanan darah berisiko) dan LP (lingkar perut berisiko).',
   param: ['rt', 'tanggal', 'tahun'],
   async bangun(p, k) {
     const list = await sasaranKategori(['dewasa', 'lansia'], p, k)
@@ -169,13 +171,21 @@ const presensiDewasaLansia: DefinisiLaporan = {
     const bulanDari = new Map(kegiatan.map((g) => [g.id!, parseISO(g.tanggal).m]))
     const kunj = await db.kunjungan.filter((x) => x.hadir && bulanDari.has(x.kegiatanId)).toArray()
     const periksa = await db.pemeriksaan.filter((x) => bulanDari.has(x.kegiatanId)).toArray()
+    const a = k.pengaturan.ambang
+    const jkDari = new Map(list.map((w) => [w.id!, w.jk]))
     const adaT = new Set(
-      periksa.filter((x) => tekananDarahBerisiko(x.sistol, x.diastol, k.pengaturan.ambang)).map((x) => `${x.wargaId}:${x.kegiatanId}`),
+      periksa.filter((x) => tekananDarahBerisiko(x.sistol, x.diastol, a)).map((x) => `${x.wargaId}:${x.kegiatanId}`),
+    )
+    const adaLP = new Set(
+      periksa
+        .filter((x) => jkDari.has(x.wargaId) && lingkarPerutBerisiko(x.lingkarPerut, jkDari.get(x.wargaId)!, a))
+        .map((x) => `${x.wargaId}:${x.kegiatanId}`),
     )
     const sel = new Map<string, string>() // "wargaId:bulan"
     for (const x of kunj) {
       const bln = bulanDari.get(x.kegiatanId)!
-      sel.set(`${x.wargaId}:${bln}`, adaT.has(`${x.wargaId}:${x.kegiatanId}`) ? `${CEK} T` : CEK)
+      const kunci = `${x.wargaId}:${x.kegiatanId}`
+      sel.set(`${x.wargaId}:${bln}`, [CEK, adaT.has(kunci) ? 'T' : '', adaLP.has(kunci) ? 'LP' : ''].filter(Boolean).join(' '))
     }
     const kolom = [
       { judul: 'NO', lebar: '4%', rata: 'tengah' as const },
@@ -203,7 +213,7 @@ const presensiDewasaLansia: DefinisiLaporan = {
         metaKanan: [['TAHUN', String(p.tahun)]],
         orientasi: 'landscape',
         bagian: [{ kolom, baris, minBaris: 20, rapat: true }],
-        catatan: [`${CEK} = hadir.  T = tekanan darah berisiko (≥ ${s.ambang.tdSistol}/${s.ambang.tdDiastol} mmHg).  Umur dihitung per ${tglId(p.tanggal)}.`],
+        catatan: [`${CEK} = hadir.  T = tekanan darah berisiko (≥ ${s.ambang.tdSistol}/${s.ambang.tdDiastol} mmHg).  LP = lingkar perut berisiko (L > ${s.ambang.lingkarPerutL} cm, P > ${s.ambang.lingkarPerutP} cm).  Umur dihitung per ${tglId(p.tanggal)}.`],
       },
     ]
   },
@@ -404,6 +414,11 @@ export const DAFTAR_LAPORAN: DefinisiLaporan[] = [
   kartuPemeriksaan,
   hasilPemeriksaan,
   pemberianObat,
+  // rekap bulanan satu tahun sesuai formulir Puskesmas
+  ...DAFTAR_REKAP,
+  // kartu per orang sesuai Buku KIA
+  kartuIbuHamil,
+  kartuNifas,
 ]
 
 export const laporanByKode = (kode: string) => DAFTAR_LAPORAN.find((d) => d.kode === kode)

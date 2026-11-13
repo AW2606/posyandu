@@ -65,6 +65,15 @@ const ALIAS: Record<string, string> = {
   nama_ortu: 'namaOrtu',
   'nama ortu': 'namaOrtu',
   orang_tua: 'namaOrtu',
+  nik_ortu: 'nikOrtu',
+  'nik ortu': 'nikOrtu',
+}
+
+/** Petunjuk jumlah digit untuk isian NIK / No. KK, mis. "12/16 digit" atau "16/16 digit, lengkap". */
+export function petunjukDigit(nilai: string, panjang = 16): { teks: string; lengkap: boolean } {
+  const n = nilai.length
+  if (n >= panjang) return { teks: `${panjang}/${panjang} digit, sudah lengkap`, lengkap: true }
+  return { teks: `${n}/${panjang} digit, kurang ${panjang - n} lagi`, lengkap: false }
 }
 
 export function validasiNIK(nik: string): string | null {
@@ -101,6 +110,8 @@ export function siapkanImpor(
       if (nikAda.has(nik) || lihat.has(nik)) return { baris, galat: 'NIK sudah terdaftar.' }
       lihat.add(nik)
     }
+    const nikOrtu = (o.nikOrtu ?? '').replace(/\s/g, '')
+    if (nikOrtu && !/^\d{16}$/.test(nikOrtu)) return { baris, galat: 'NIK orang tua harus 16 digit angka.' }
     return {
       baris,
       data: {
@@ -113,6 +124,7 @@ export function siapkanImpor(
         dusun: o.dusun || 'Dusun 5',
         alamat: o.alamat ?? '',
         namaOrtu: o.namaOrtu ?? '',
+        ...(nikOrtu ? { nikOrtu } : {}),
         aktif: true,
       },
     }

@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import fotoTips from '../assets/foto/ibu-bayi-2.jpg'
 import { Bangau, Field, Ikon, KepalaHalaman, useToast } from '../components/ui'
-import { formatUmur, todayISO } from '../lib/age'
-import { validasiNIK } from '../lib/csv'
+import { formatUmur, todayISO, umurTahun } from '../lib/age'
+import { petunjukDigit, validasiNIK } from '../lib/csv'
 import { catat, db, type Warga } from '../lib/db'
 import { useKategori, usePengaturan } from '../lib/hooks'
 import { daftarkan } from '../lib/layanan'
@@ -12,7 +12,18 @@ import { kategoriDari } from '../lib/age'
 type Form = Omit<Warga, 'id' | 'dibuat' | 'diubah'>
 
 const KOSONG: Form = {
-  nama: '', nik: '', noKK: '', tanggalLahir: '', jk: 'P', rt: '22', dusun: 'Dusun 5', alamat: '', namaOrtu: '', aktif: true,
+  nama: '', nik: '', noKK: '', tanggalLahir: '', jk: 'P', rt: '22', dusun: 'Dusun 5', alamat: '', namaOrtu: '', nikOrtu: '', aktif: true,
+}
+
+/** Penghitung digit di bawah isian 16 digit. Hijau dan bercentang saat sudah lengkap. */
+function HitungDigit({ nilai }: { nilai: string }) {
+  if (!nilai) return null
+  const { teks, lengkap } = petunjukDigit(nilai)
+  return (
+    <span className={`hitung-digit ${lengkap ? 'lengkap' : ''}`} aria-live="polite">
+      {lengkap && <Ikon nama="centang" ukuran={15} tebal={3} />} {teks}
+    </span>
+  )
 }
 
 export default function WargaForm() {
@@ -38,6 +49,8 @@ export default function WargaForm() {
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }))
   const kat = f.tanggalLahir ? kategoriDari(f.tanggalLahir, todayISO(), kategori) : undefined
+  // NIK orang tua hanya relevan untuk anak (di bawah 18 th); tetap tampil bila sudah pernah diisi.
+  const tampilNikOrtu = !!f.nikOrtu || (!!f.tanggalLahir && umurTahun(f.tanggalLahir, todayISO()) < 18)
 
   async function kirim(e: FormEvent) {
     e.preventDefault()
@@ -52,6 +65,9 @@ export default function WargaForm() {
     }
     const kk = f.noKK.replace(/\s/g, '')
     if (kk && !/^\d{16}$/.test(kk)) g.noKK = 'Nomor KK harus 16 digit angka.'
+    const nikOrtu = (f.nikOrtu ?? '').replace(/\s/g, '')
+    if (nikOrtu && !/^\d{16}$/.test(nikOrtu)) g.nikOrtu = 'NIK orang tua harus 16 digit angka.'
+    else if (nikOrtu && nikOrtu === nik) g.nikOrtu = 'NIK orang tua tidak boleh sama dengan NIK anak.'
     if (!f.tanggalLahir) g.tanggalLahir = 'Tanggal lahir wajib diisi.'
     else if (f.tanggalLahir > todayISO()) g.tanggalLahir = 'Tanggal lahir tidak boleh di masa depan.'
     setGalat(g)
@@ -59,7 +75,7 @@ export default function WargaForm() {
 
     setSimpan(true)
     const now = Date.now()
-    const data = { ...f, nama: f.nama.trim(), nik, noKK: kk }
+    const data = { ...f, nama: f.nama.trim(), nik, noKK: kk, nikOrtu }
     let wargaId: number
     if (id) {
       wargaId = Number(id)
@@ -132,12 +148,20 @@ export default function WargaForm() {
 
           <h3 className="bagian-form"><span>3</span> Nomor identitas</h3>
           <div className="grid2 tumpuk">
-            <Field label="NIK (16 digit)" galat={galat.nik} petunjuk="Boleh dikosongkan jika belum punya NIK.">
+            <Field label="NIK (16 digit)" galat={galat.nik} petunjuk={f.nik ? undefined : 'Boleh dikosongkan jika belum punya NIK.'}>
               <input className={`input ${galat.nik ? 'salah' : ''}`} inputMode="numeric" maxLength={16} value={f.nik} onChange={(e) => set('nik', e.target.value.replace(/\D/g, ''))} />
+              {!galat.nik && <HitungDigit nilai={f.nik} />}
             </Field>
             <Field label="Nomor KK (16 digit)" galat={galat.noKK}>
               <input className={`input ${galat.noKK ? 'salah' : ''}`} inputMode="numeric" maxLength={16} value={f.noKK} onChange={(e) => set('noKK', e.target.value.replace(/\D/g, ''))} />
+              {!galat.noKK && <HitungDigit nilai={f.noKK} />}
             </Field>
+            {tampilNikOrtu && (
+              <Field label="NIK orang tua / wali (16 digit)" galat={galat.nikOrtu} petunjuk={f.nikOrtu ? undefined : 'Untuk balita dan anak. Boleh dikosongkan.'}>
+                <input className={`input ${galat.nikOrtu ? 'salah' : ''}`} inputMode="numeric" maxLength={16} value={f.nikOrtu ?? ''} onChange={(e) => set('nikOrtu', e.target.value.replace(/\D/g, ''))} />
+                {!galat.nikOrtu && <HitungDigit nilai={f.nikOrtu ?? ''} />}
+              </Field>
+            )}
           </div>
 
           <div className="aksi-form">

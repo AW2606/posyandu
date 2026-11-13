@@ -1,20 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { formatUmur, tglId } from '../lib/age'
-import { db, NAMA_TAHAP, URUTAN_TAHAP, type Tahap, type Kegiatan, type Kunjungan, type Pemeriksaan, type Warga } from '../lib/db'
-import {
-  angkaId,
-  hitungIMT,
-  ketAsamUrat,
-  ketGula,
-  ketKolesterol,
-  lingkarPerutBerisiko,
-  numOrUndef,
-  statusGizi,
-  tekananDarahBerisiko,
-  validasiPemeriksaan,
-} from '../lib/health'
+import { useEffect, useMemo, useState } from 'react'
+import { formatUmur, tglId, umurBulan } from '../lib/age'
+import { db, NAMA_TAHAP, URUTAN_TAHAP, type LayananKunjungan, type Tahap, type Kegiatan, type Kunjungan, type Pemeriksaan, type Warga } from '../lib/db'
+import { angkaId, numOrUndef, validasiPemeriksaan } from '../lib/health'
 import { usePengaturan } from '../lib/hooks'
+import { hasilOtomatis, profilLayanan } from '../lib/kelompok'
 import { simpanPemeriksaan } from '../lib/layanan'
+import LayananKelompok from './LayananKelompok'
 import { Chip, Field, Ikon, Sheet, useToast } from './ui'
 
 interface Props {
@@ -22,6 +13,8 @@ interface Props {
   kunjungan: Kunjungan
   warga: Warga
   kode: string // kode kategori
+  hamil?: boolean
+  menyusui?: boolean
   ada?: Pemeriksaan
   onTutup: () => void
   onBerikutnya?: () => void
@@ -29,10 +22,21 @@ interface Props {
 
 const s = (n?: number) => (n === undefined ? '' : String(n).replace('.', ','))
 
-export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, onTutup, onBerikutnya }: Props) {
+/** Buang jawaban kosong supaya kunjungan tanpa layanan tidak menyimpan objek kosong. */
+function rapikanLayanan(l: LayananKunjungan): LayananKunjungan | undefined {
+  const r = Object.fromEntries(Object.entries(l).filter(([, v]) => v !== undefined && v !== '')) as LayananKunjungan
+  return Object.keys(r).length ? r : undefined
+}
+
+export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, hamil, menyusui, ada, onTutup, onBerikutnya }: Props) {
   const p = usePengaturan()
   const toast = useToast()
-  const dewasa = ['remaja', 'dewasa', 'lansia'].includes(kode)
+  const umurBln = umurBulan(warga.tanggalLahir, kegiatan.tanggal)
+  const profil = profilLayanan({ kode, umurBln, jk: warga.jk, hamil, menyusui })
+  const dewasa = profil.tensi
+  const [lika, setLika] = useState(s(ada?.lika))
+  const [hb, setHb] = useState(s(ada?.hb))
+  const [layanan, setLayanan] = useState<LayananKunjungan>(kunjungan.layanan ?? {})
   const [bb, setBb] = useState(s(ada?.bb))
   const [tb, setTb] = useState(s(ada?.tb))
   const [lila, setLila] = useState(s(ada?.lila))
@@ -63,19 +67,17 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
       bb: numOrUndef(bb), tb: numOrUndef(tb), lila: numOrUndef(lila), lingkarPerut: numOrUndef(lp),
       sistol: numOrUndef(sis), diastol: numOrUndef(dia),
       gulaDarah: numOrUndef(gula), kolesterol: numOrUndef(kol), asamUrat: numOrUndef(au),
+      lika: numOrUndef(lika), hb: numOrUndef(hb),
     }),
-    [bb, tb, lila, lp, sis, dia, gula, kol, au],
+    [bb, tb, lila, lp, sis, dia, gula, kol, au, lika, hb],
   )
-  const imt = hitungIMT(v.bb, v.tb)
-  const gizi = statusGizi(imt, p.ambang)
-  const perut = lingkarPerutBerisiko(v.lingkarPerut, warga.jk, p.ambang)
-  const td = tekananDarahBerisiko(v.sistol, v.diastol, p.ambang)
+  const chips = hasilOtomatis({ profil, v, jk: warga.jk, umurBln, tanggal: kegiatan.tanggal, a: p.ambang, lalu, layanan })
   const galat = useMemo(
     () =>
       validasiPemeriksaan({
-        bb, tb, lila, lingkarPerut: lp, sistol: sis, diastol: dia, gulaDarah: gula, kolesterol: kol, asamUrat: au,
+        bb, tb, lila, lingkarPerut: lp, sistol: sis, diastol: dia, gulaDarah: gula, kolesterol: kol, asamUrat: au, lika, hb,
       }),
-    [bb, tb, lila, lp, sis, dia, gula, kol, au],
+    [bb, tb, lila, lp, sis, dia, gula, kol, au, lika, hb],
   )
   const adaGalat = Object.keys(galat).length > 0
   const kosongSemua = Object.values(v).every((x) => x === undefined)
@@ -95,7 +97,7 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
       : URUTAN_TAHAP.indexOf(tahap) >= URUTAN_TAHAP.indexOf(minimal)
         ? tahap
         : minimal
-    await db.kunjungan.update(kunjungan.id!, { penyuluhan, rujukan, tahap: akhir })
+    await db.kunjungan.update(kunjungan.id!, { penyuluhan, rujukan, tahap: akhir, layanan: rapikanLayanan(layanan) })
     toast(`${warga.nama.split(' ')[0]} tersimpan`)
     if (opsi.berikutnya && onBerikutnya) onBerikutnya()
     else onTutup()
@@ -110,9 +112,7 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
       </div>
     </Field>
   )
-  const ada1 = imt !== undefined || perut || td || v.gulaDarah !== undefined || v.kolesterol !== undefined || v.asamUrat !== undefined
-  const ok = (teks: ReactNode) => <Chip warna="hijau"><Ikon nama="centang" ukuran={14} tebal={2.6} /> {teks}</Chip>
-  const awas = (teks: ReactNode) => <Chip warna="merah"><Ikon nama="peringatan" ukuran={14} /> {teks}</Chip>
+  const WARNA_NADA = { baik: 'hijau', waspada: 'kuning', bahaya: 'merah' } as const
 
   return (
     <Sheet
@@ -137,6 +137,8 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
         {isian(kolBalita ? 'Panjang/tinggi badan' : 'Tinggi badan', 'tb', tb, setTb, 'cm')}
         {isian('LILA', 'lila', lila, setLila, 'cm')}
         {!kolBalita && isian('Lingkar perut', 'lingkarPerut', lp, setLp, 'cm')}
+        {profil.lika && isian('Lingkar kepala (LIKA)', 'lika', lika, setLika, 'cm')}
+        {profil.hb && isian('Hb', 'hb', hb, setHb, 'g/dl')}
       </div>
 
       {dewasa && (
@@ -158,17 +160,19 @@ export default function PeriksaSheet({ kegiatan, kunjungan, warga, kode, ada, on
         </>
       )}
 
-      {ada1 && (
+      <LayananKelompok profil={profil} nilai={layanan} ubah={setLayanan} />
+
+      {chips.length > 0 && (
         <div className="hasil-otomatis" aria-live="polite">
           <p>HASIL OTOMATIS</p>
           <div className="hasil-hitung">
-            {imt !== undefined && (gizi === 'Normal' ? ok(`IMT ${angkaId(imt)} · ${gizi}`) : awas(`IMT ${angkaId(imt)} · ${gizi}`))}
-            {perut && awas('Lingkar perut berisiko')}
-            {td ? awas('Tensi berisiko (T)') : v.sistol !== undefined && v.diastol !== undefined && ok('Tensi normal')}
-            {v.gulaDarah !== undefined && (ketGula(v.gulaDarah, p.ambang) === 'Tinggi' ? awas : ok)(`Gula ${ketGula(v.gulaDarah, p.ambang)}`)}
-            {v.kolesterol !== undefined && (ketKolesterol(v.kolesterol, p.ambang) === 'Tinggi' ? awas : ok)(`Kolesterol ${ketKolesterol(v.kolesterol, p.ambang)}`)}
-            {v.asamUrat !== undefined && (ketAsamUrat(v.asamUrat, warga.jk, p.ambang) === 'Tinggi' ? awas : ok)(`Asam urat ${ketAsamUrat(v.asamUrat, warga.jk, p.ambang)}`)}
+            {chips.map((c) => (
+              <Chip key={c.teks} warna={WARNA_NADA[c.nada]}>
+                {c.nada === 'baik' ? <Ikon nama="centang" ukuran={14} tebal={2.6} /> : <Ikon nama="peringatan" ukuran={14} />} {c.teks}
+              </Chip>
+            ))}
           </div>
+          {(profil.balita || profil.anak) && <p className="sumber">Status gizi anak dihitung dengan standar WHO (Permenkes 2/2020).</p>}
         </div>
       )}
 

@@ -63,7 +63,7 @@ export function KartuImunisasi({ w }: { w: Warga }) {
 export function KartuKehamilan({ w }: { w: Warga }) {
   const toast = useToast()
   const daftar = useLiveQuery(() => db.kehamilan.where('wargaId').equals(w.id!).toArray(), [w.id]) ?? []
-  const [form, setForm] = useState<null | { id?: number; hpht: string; catatan: string }>(null)
+  const [form, setForm] = useState<null | { id?: number; hpht: string; catatan: string; namaSuami?: string; noHp?: string; jarakAnak?: string }>(null)
   const [lahir, setLahir] = useState<null | { id: number; tanggal: string; tempat: string; diFaskes: boolean }>(null)
   const ref = todayISO()
   const aktif = daftar.find((k) => !k.tanggalLahir)
@@ -72,8 +72,15 @@ export function KartuKehamilan({ w }: { w: Warga }) {
   async function simpanHamil() {
     if (!form?.hpht) return
     if (form.hpht > ref) return toast('HPHT tidak boleh di masa depan')
-    if (form.id) await db.kehamilan.update(form.id, { hpht: form.hpht, catatan: form.catatan })
-    else await db.kehamilan.add({ wargaId: w.id!, hpht: form.hpht, catatan: form.catatan })
+    const isi = {
+      hpht: form.hpht,
+      catatan: form.catatan,
+      namaSuami: form.namaSuami?.trim() ?? '',
+      noHp: (form.noHp ?? '').replace(/[^\d+]/g, ''),
+      jarakAnak: form.jarakAnak?.trim() ?? '',
+    }
+    if (form.id) await db.kehamilan.update(form.id, isi)
+    else await db.kehamilan.add({ wargaId: w.id!, ...isi })
     await catat(form.id ? 'ubah' : 'tambah', 'kehamilan', w.nama)
     setForm(null)
   }
@@ -118,9 +125,11 @@ export function KartuKehamilan({ w }: { w: Warga }) {
             </div>
             <div className="trimester-label"><span>Trimester 1</span><span>Trimester 2</span><span>Trimester 3</span></div>
           </div>
-          <p className="kecil redup">HPHT {tglId(aktif.hpht)}{aktif.catatan ? ` · ${aktif.catatan}` : ''}</p>
+          <p className="kecil redup">
+            HPHT {tglId(aktif.hpht)}{aktif.namaSuami ? ` · suami ${aktif.namaSuami}` : ''}{aktif.noHp ? ` · ${aktif.noHp}` : ''}{aktif.catatan ? ` · ${aktif.catatan}` : ''}
+          </p>
           <div className="baris">
-            <button className="btn kecil" onClick={() => setForm({ id: aktif.id, hpht: aktif.hpht, catatan: aktif.catatan })}>Ubah HPHT</button>
+            <button className="btn kecil" onClick={() => setForm({ id: aktif.id, hpht: aktif.hpht, catatan: aktif.catatan, namaSuami: aktif.namaSuami, noHp: aktif.noHp, jarakAnak: aktif.jarakAnak })}>Ubah data kehamilan</button>
             <button className="btn kecil utama" onClick={() => setLahir({ id: aktif.id!, tanggal: ref, tempat: '', diFaskes: true })}><Ikon nama="bayi" ukuran={18} /> Catat persalinan</button>
           </div>
           <p className="petunjuk">Hasil timbang dan tensi tiap bulan tampil di Riwayat pemeriksaan.</p>
@@ -142,6 +151,17 @@ export function KartuKehamilan({ w }: { w: Warga }) {
         <Sheet judul={form.id ? 'Ubah kehamilan' : 'Kehamilan baru'} sub={w.nama} ikon="hati" onTutup={() => setForm(null)}>
           <Field label="HPHT (hari pertama haid terakhir)" petunjuk="Perkiraan lahir dihitung otomatis.">
             <input className="input" type="date" value={form.hpht} max={ref} onChange={(e) => setForm({ ...form, hpht: e.target.value })} />
+          </Field>
+          <div className="grid2 tumpuk">
+            <Field label="Nama suami (opsional)">
+              <input className="input" value={form.namaSuami ?? ''} onChange={(e) => setForm({ ...form, namaSuami: e.target.value })} />
+            </Field>
+            <Field label="No. HP (opsional)">
+              <input className="input" inputMode="tel" value={form.noHp ?? ''} onChange={(e) => setForm({ ...form, noHp: e.target.value })} />
+            </Field>
+          </div>
+          <Field label="Jarak dengan anak sebelumnya (opsional)" petunjuk="Mis. 3 tahun. Kosongkan bila kehamilan pertama.">
+            <input className="input" value={form.jarakAnak ?? ''} onChange={(e) => setForm({ ...form, jarakAnak: e.target.value })} />
           </Field>
           <Field label="Catatan (opsional)">
             <input className="input" value={form.catatan} onChange={(e) => setForm({ ...form, catatan: e.target.value })} />

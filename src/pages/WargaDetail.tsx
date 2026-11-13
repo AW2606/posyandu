@@ -9,6 +9,7 @@ import { angkaId, hitungIMT, lingkarPerutBerisiko, statusGizi, tekananDarahBeris
 import { useKategori, usePengaturan } from '../lib/hooks'
 import { KartuImunisasi, KartuKehamilan } from '../components/KartuKhusus'
 import { umurBulan } from '../lib/age'
+import { statusGiziWarga } from '../lib/gizi'
 
 export default function WargaDetail() {
   const { id } = useParams()
@@ -31,6 +32,8 @@ export default function WargaDetail() {
 
   const ref = todayISO()
   const kat = kategoriDari(w.tanggalLahir, ref, kategori)
+  const adaLika = periksa.some((x) => x.lika !== undefined)
+  const adaHb = periksa.some((x) => x.hb !== undefined)
   const aktifStatus = (j: 'hamil' | 'menyusui') => status.find((s) => s.jenis === j && !s.selesai)
 
   async function setStatus(j: 'hamil' | 'menyusui') {
@@ -116,6 +119,7 @@ export default function WargaDetail() {
               {info('warga', 'No. KK', w.noKK || '-')}
               {info('lokasi', 'Alamat', [w.alamat, w.dusun, `RT ${w.rt}`].filter(Boolean).join(', '))}
               {w.namaOrtu && info('orang', 'Orang tua / wali', w.namaOrtu)}
+              {w.nikOrtu && info('kunci', 'NIK orang tua / wali', w.nikOrtu)}
               {info('riwayat', 'Kunjungan', `${kunj} kali`, periksa[0] ? `sejak ${tglId(periksa[0].tanggal)}` : undefined)}
             </div>
             <div className="baris" style={{ marginTop: 20 }}>
@@ -160,12 +164,13 @@ export default function WargaDetail() {
           <div className="tabel-gulir">
             <table className="tabel">
               <thead>
-                <tr><th>Tanggal</th><th>BB</th><th>TB</th><th>IMT</th><th>LILA</th><th>L. perut</th><th>Tensi</th><th>Gula</th></tr>
+                <tr><th>Tanggal</th><th>BB</th><th>TB</th><th>IMT</th><th>LILA</th>{adaLika && <th>LIKA</th>}<th>L. perut</th><th>Tensi</th><th>Gula</th>{adaHb && <th>Hb</th>}</tr>
               </thead>
               <tbody>
                 {[...periksa].reverse().map((x) => {
                   const imt = hitungIMT(x.bb, x.tb)
-                  const g = statusGizi(imt, p.ambang)
+                  // anak dinilai dengan standar WHO, dewasa dengan IMT seperti sebelumnya
+                  const g = statusGiziWarga({ jk: w.jk, umurBln: umurBulan(w.tanggalLahir, x.tanggal), bb: x.bb, tb: x.tb }, (bb, tb) => statusGizi(hitungIMT(bb, tb), p.ambang))
                   return (
                     <tr key={x.id}>
                       <td>{tglId(x.tanggal)}</td>
@@ -173,9 +178,11 @@ export default function WargaDetail() {
                       <td>{angkaId(x.tb, 0)}</td>
                       <td>{imt !== undefined ? <>{angkaId(imt)} {g && g !== 'Normal' && <Chip warna="merah">{g}</Chip>}</> : ''}</td>
                       <td>{angkaId(x.lila)}</td>
-                      <td>{angkaId(x.lingkarPerut, 0)} {lingkarPerutBerisiko(x.lingkarPerut, w.jk, p.ambang) && <Chip warna="merah">!</Chip>}</td>
+                      {adaLika && <td>{angkaId(x.lika)}</td>}
+                      <td>{angkaId(x.lingkarPerut, 0)} {lingkarPerutBerisiko(x.lingkarPerut, w.jk, p.ambang) && <Chip warna="merah">LP</Chip>}</td>
                       <td>{x.sistol !== undefined && x.diastol !== undefined ? <>{x.sistol}/{x.diastol} {tekananDarahBerisiko(x.sistol, x.diastol, p.ambang) && <Chip warna="merah">T</Chip>}</> : ''}</td>
                       <td>{angkaId(x.gulaDarah, 0)}</td>
+                      {adaHb && <td>{angkaId(x.hb)}</td>}
                     </tr>
                   )
                 })}

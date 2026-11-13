@@ -3,11 +3,12 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import fotoHero from '../assets/foto/timbang-bayi.jpg'
 import { Angka, Cincin, GrafikBatang, GrafikDonat, Ikon, JudulKartu, Kosong, PALET, hexKategori, inisial, warnaKategori } from '../components/ui'
-import { tglPanjang, todayISO } from '../lib/age'
+import { tglPanjang, todayISO, umurBulan } from '../lib/age'
+import { statusGiziWarga } from '../lib/gizi'
 import { useAuth } from '../lib/auth'
 import { useStatusSinkron } from '../lib/cloud'
 import { db, URUTAN_TAHAP, NAMA_TAHAP } from '../lib/db'
-import { rekapRisiko } from '../lib/health'
+import { hitungIMT, rekapRisiko, statusGizi } from '../lib/health'
 import { salam, teksSinkron } from '../lib/tampilan'
 import { pilihKegiatanAktif, useKategori, useKegiatanList, usePengaturan } from '../lib/hooks'
 import { useTindakLanjut } from '../lib/tindakLanjut'
@@ -41,7 +42,10 @@ export default function Dashboard() {
     const risiko = rekapRisiko(
       peserta.flatMap((x) => {
         const t = pm.get(x!.w.id!)
-        return t ? [{ ...t, jk: x!.w.jk }] : []
+        if (!t) return []
+        // anak dinilai dengan standar WHO, dewasa dengan IMT seperti sebelumnya
+        const gizi = statusGiziWarga({ jk: x!.w.jk, umurBln: umurBulan(x!.w.tanggalLahir, t.tanggal), bb: t.bb, tb: t.tb }, (bb, tb) => statusGizi(hitungIMT(bb, tb), p.ambang))
+        return [{ ...t, jk: x!.w.jk, gizi }]
       }),
       p.ambang,
     )

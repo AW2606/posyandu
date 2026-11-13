@@ -169,11 +169,22 @@ function Ambang() {
     ['kolesterolMax', 'Kolesterol tinggi jika ≥ (mg/dl)'],
     ['asamUratL', 'Asam urat laki-laki tinggi jika > (mg/dl)'],
     ['asamUratP', 'Asam urat perempuan tinggi jika > (mg/dl)'],
+    ['imtSangatKurus', 'IMT dewasa: di bawah ini sangat kurus'],
+    ['imtObesitas', 'IMT dewasa: di atas ini obesitas'],
+    ['tdRendahSistol', 'Tensi rendah jika sistol < (mmHg)'],
+    ['tdRendahDiastol', 'Tensi rendah jika diastol < (mmHg)'],
+    ['gulaDarahRendah', 'Gula darah rendah jika < (mg/dl)'],
+    ['lilaKek', 'LILA ibu hamil KEK jika < (cm)'],
+    ['lilaBalitaBuruk', 'LILA balita 6-59 bln gizi buruk jika < (cm)'],
+    ['lilaBalitaKurang', 'LILA balita 6-59 bln gizi kurang jika < (cm)'],
+    ['hbAnemiaRemaja', 'Hb remaja putri anemia jika < (g/dl)'],
+    ['hbAnemiaHamil', 'Hb ibu hamil anemia jika < (g/dl)'],
+    ['pumaTinggi', 'Skor PUMA berisiko PPOK jika ≥'],
   ]
   return (
     <div className="kartu">
       <JudulKartu ikon="timbangan" warna="biru">Ambang batas pemeriksaan</JudulKartu>
-      <p className="petunjuk">Angka bawaan perlu dikonfirmasi ke bidan Puskesmas. Sistem hanya memberi penanda, bukan diagnosis.</p>
+      <p className="petunjuk">Angka bawaan perlu dikonfirmasi ke bidan Puskesmas. Sistem hanya memberi penanda, bukan diagnosis. Status gizi balita dan anak di bawah 18 tahun dihitung dengan standar WHO (Permenkes 2/2020), bukan dengan IMT dewasa.</p>
       {lab.map(([k, l]) => (
         <Field key={k} label={l}>
           <input className="input" inputMode="decimal" value={d.ambang[k]} onChange={(e) => setD((x) => ({ ...x, ambang: { ...x.ambang, [k]: Number(e.target.value.replace(',', '.')) || 0 } }))} />

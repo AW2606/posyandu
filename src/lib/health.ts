@@ -11,6 +11,18 @@ export interface Ambang {
   kolesterolMax: number
   asamUratL: number
   asamUratP: number
+  // --- tambahan: penilaian per kelompok umur ---
+  imtSangatKurus: number // dewasa: di bawah ini = sangat kurus
+  imtObesitas: number // dewasa: di atas ini = obesitas
+  tdRendahSistol: number // tensi rendah jika sistol di bawah ini
+  tdRendahDiastol: number
+  gulaDarahRendah: number // gula rendah jika di bawah ini
+  lilaKek: number // ibu hamil/WUS: LILA di bawah ini = KEK
+  lilaBalitaBuruk: number // balita 6-59 bln: di bawah ini = gizi buruk
+  lilaBalitaKurang: number // balita 6-59 bln: di bawah ini = gizi kurang
+  hbAnemiaRemaja: number // remaja putri: Hb di bawah ini = anemia
+  hbAnemiaHamil: number // ibu hamil: Hb di bawah ini = anemia
+  pumaTinggi: number // skor PUMA ini atau lebih = berisiko PPOK
 }
 
 /** [KONFIRMASI] Semua angka bisa diubah Admin di Pengaturan. */
@@ -25,6 +37,17 @@ export const AMBANG_DEFAULT: Ambang = {
   kolesterolMax: 200,
   asamUratL: 7,
   asamUratP: 6,
+  imtSangatKurus: 17,
+  imtObesitas: 27,
+  tdRendahSistol: 90,
+  tdRendahDiastol: 60,
+  gulaDarahRendah: 70,
+  lilaKek: 23.5,
+  lilaBalitaBuruk: 11.5,
+  lilaBalitaKurang: 12.5,
+  hbAnemiaRemaja: 12,
+  hbAnemiaHamil: 11,
+  pumaTinggi: 6,
 }
 
 export function hitungIMT(bb?: number, tb?: number): number | undefined {
@@ -58,12 +81,13 @@ export function tekananDarahBerisiko(
 
 /** Jumlah penanda risiko dari hasil ukur yang diberikan (mis. satu kegiatan). */
 export function rekapRisiko(
-  baris: Array<{ jk: JK; bb?: number; tb?: number; sistol?: number; diastol?: number; lingkarPerut?: number }>,
+  baris: Array<{ jk: JK; bb?: number; tb?: number; sistol?: number; diastol?: number; lingkarPerut?: number; gizi?: StatusGizi }>,
   a: Ambang,
 ): { T: number; perut: number; kurus: number; gemuk: number } {
   const r = { T: 0, perut: 0, kurus: 0, gemuk: 0 }
   for (const x of baris) {
-    const gizi = statusGizi(hitungIMT(x.bb, x.tb), a)
+    // gizi boleh dihitung pemanggil (mis. anak memakai standar WHO); bila tidak ada pakai IMT dewasa
+    const gizi = 'gizi' in x ? x.gizi : statusGizi(hitungIMT(x.bb, x.tb), a)
     if (tekananDarahBerisiko(x.sistol, x.diastol, a)) r.T++
     if (lingkarPerutBerisiko(x.lingkarPerut, x.jk, a)) r.perut++
     if (gizi === 'Kurus') r.kurus++
@@ -71,6 +95,43 @@ export function rekapRisiko(
   }
   return r
 }
+
+/** IMT dewasa 5 tingkat (kolom rekap Puskesmas). Batas kurus/gemuk sama dengan statusGizi. */
+export type StatusIMT5 = 'Sangat kurus' | 'Kurus' | 'Normal' | 'Gemuk' | 'Obesitas'
+export function statusIMT5(imt: number | undefined, a: Ambang): StatusIMT5 | undefined {
+  const g = statusGizi(imt, a)
+  if (imt === undefined || !g) return undefined
+  if (g === 'Kurus' && imt < a.imtSangatKurus) return 'Sangat kurus'
+  if (g === 'Gemuk' && imt > a.imtObesitas) return 'Obesitas'
+  return g
+}
+
+export type Tingkat3 = 'Rendah' | 'Normal' | 'Tinggi'
+
+/** Tensi rendah / normal / tinggi. Tinggi memakai aturan penanda T yang sudah ada. */
+export function tingkatTensi(sis: number | undefined, dia: number | undefined, a: Ambang): Tingkat3 | undefined {
+  if (sis === undefined || dia === undefined) return undefined
+  if (tekananDarahBerisiko(sis, dia, a)) return 'Tinggi'
+  if (sis < a.tdRendahSistol || dia < a.tdRendahDiastol) return 'Rendah'
+  return 'Normal'
+}
+
+export function tingkatGula(v: number | undefined, a: Ambang): Tingkat3 | undefined {
+  if (v === undefined) return undefined
+  if (v >= a.gulaDarahMax) return 'Tinggi'
+  return v < a.gulaDarahRendah ? 'Rendah' : 'Normal'
+}
+
+/** Ibu hamil / WUS: KEK jika LILA di bawah batas. */
+export const lilaKEK = (lila: number | undefined, a: Ambang) => lila !== undefined && lila < a.lilaKek
+
+/** LILA balita 6-59 bulan. */
+export function statusLilaBalita(lila: number | undefined, umurBln: number, a: Ambang): 'Gizi buruk' | 'Gizi kurang' | 'Normal' | undefined {
+  if (lila === undefined || umurBln < 6 || umurBln > 59) return undefined
+  return lila < a.lilaBalitaBuruk ? 'Gizi buruk' : lila < a.lilaBalitaKurang ? 'Gizi kurang' : 'Normal'
+}
+
+export const anemia = (hb: number | undefined, batas: number) => hb !== undefined && hb < batas
 
 export type Kadar = 'Normal' | 'Tinggi'
 
@@ -87,7 +148,7 @@ export function ketAsamUrat(v: number | undefined, jk: JK, a: Ambang): Kadar | '
 
 /** Peringatan rentang wajar (bukan blokir keras). */
 export type KolomUkur =
-  | 'bb' | 'tb' | 'lila' | 'lingkarPerut' | 'sistol' | 'diastol' | 'gulaDarah' | 'kolesterol' | 'asamUrat'
+  | 'bb' | 'tb' | 'lila' | 'lingkarPerut' | 'sistol' | 'diastol' | 'gulaDarah' | 'kolesterol' | 'asamUrat' | 'lika' | 'hb'
 
 /** Batas wajar tiap kolom. Di luar batas ini hampir pasti salah ketik, jadi tidak boleh disimpan. */
 export const RENTANG_UKUR: Record<KolomUkur, { min: number; max: number; satuan: string }> = {
@@ -100,6 +161,8 @@ export const RENTANG_UKUR: Record<KolomUkur, { min: number; max: number; satuan:
   gulaDarah: { min: 20, max: 700, satuan: 'mg/dl' },
   kolesterol: { min: 50, max: 600, satuan: 'mg/dl' },
   asamUrat: { min: 1, max: 20, satuan: 'mg/dl' },
+  lika: { min: 20, max: 65, satuan: 'cm' },
+  hb: { min: 3, max: 20, satuan: 'g/dl' },
 }
 
 /**

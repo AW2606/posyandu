@@ -7,67 +7,60 @@ function isiSel(s: Sel) {
   return <>{s}</>
 }
 
-function TabelBagian({ b }: { b: Bagian }) {
-  const adaKelompok = b.kolom.some((k) => k.kelompok)
-  const kosong = Math.max(0, (b.minBaris ?? 0) - b.baris.length)
-  const jmlKolom = b.kolom.length
+type SelKepala = { judul: string; span: number; rowSpan: number; tengah: boolean }
 
-  // susun baris header: kolom berkelompok digabung per kelompok berurutan
-  const atas: Array<{ judul: string; span: number; rowSpan: number; rata?: string; lebar?: string }> = []
-  const bawah: Array<{ judul: string; rata?: string; lebar?: string }> = []
-  if (adaKelompok) {
+/**
+ * Susun baris judul tabel. Tiap kolom punya jalur [induk?, kelompok?, judul]; judul kelompok yang sama dan
+ * berurutan digabung, dan judul kolom memanjang ke bawah sampai baris terakhir.
+ */
+export function susunKepala(kolom: Bagian['kolom']): SelKepala[][] {
+  const jalur = kolom.map((k) => [...(k.kelompok && k.induk ? [k.induk] : []), ...(k.kelompok ? [k.kelompok] : []), k.judul])
+  const dalam = Math.max(1, ...jalur.map((j) => j.length))
+  const baris: SelKepala[][] = Array.from({ length: dalam }, () => [])
+  for (let r = 0; r < dalam; r++) {
     let i = 0
-    while (i < b.kolom.length) {
-      const k = b.kolom[i]
-      if (!k.kelompok) {
-        atas.push({ judul: k.judul, span: 1, rowSpan: 2, rata: k.rata, lebar: k.lebar })
+    while (i < kolom.length) {
+      const j = jalur[i]
+      if (r > j.length - 1) { i++; continue } // sudah tertutup judul kolom di atasnya
+      if (r === j.length - 1) {
+        baris[r].push({ judul: j[r], span: 1, rowSpan: dalam - r, tengah: kolom[i].rata === 'tengah' })
         i++
-      } else {
-        let j = i
-        while (j < b.kolom.length && b.kolom[j].kelompok === k.kelompok) j++
-        atas.push({ judul: k.kelompok, span: j - i, rowSpan: 1, rata: 'tengah' })
-        for (let x = i; x < j; x++) bawah.push({ judul: b.kolom[x].judul, rata: b.kolom[x].rata, lebar: b.kolom[x].lebar })
-        i = j
+        continue
       }
+      const awalan = j.slice(0, r + 1).join('\u0000')
+      let s = i + 1
+      while (s < kolom.length && jalur[s].length - 1 > r && jalur[s].slice(0, r + 1).join('\u0000') === awalan) s++
+      baris[r].push({ judul: j[r], span: s - i, rowSpan: 1, tengah: true })
+      i = s
     }
   }
+  return baris
+}
+
+function TabelBagian({ b }: { b: Bagian }) {
+  const kosong = Math.max(0, (b.minBaris ?? 0) - b.baris.length)
+  const jmlKolom = b.kolom.length
+  const kepala = susunKepala(b.kolom)
 
   return (
     <>
       {b.judul && <h3 className="lap-subjudul">{b.judul}</h3>}
-      <table className={`lap-tabel ${b.rapat ? 'rapat' : ''}`}>
+      <table className={`lap-tabel ${b.rapat ? 'rapat' : ''} ${b.rapat === 'sangat' ? 'sangat-rapat' : ''}`}>
         <colgroup>
           {b.kolom.map((k, i) => (
             <col key={i} style={k.lebar ? { width: k.lebar } : undefined} />
           ))}
         </colgroup>
         <thead>
-          {adaKelompok ? (
-            <>
-              <tr>
-                {atas.map((h, i) => (
-                  <th key={i} colSpan={h.span} rowSpan={h.rowSpan} className={h.rata === 'tengah' ? 'tengah' : ''}>
-                    {h.judul}
-                  </th>
-                ))}
-              </tr>
-              <tr>
-                {bawah.map((h, i) => (
-                  <th key={i} className={h.rata === 'tengah' ? 'tengah' : ''}>
-                    {h.judul}
-                  </th>
-                ))}
-              </tr>
-            </>
-          ) : (
-            <tr>
-              {b.kolom.map((k, i) => (
-                <th key={i} className={k.rata === 'tengah' ? 'tengah' : ''}>
-                  {k.judul}
+          {kepala.map((r, i) => (
+            <tr key={i}>
+              {r.map((h, j) => (
+                <th key={j} colSpan={h.span > 1 ? h.span : undefined} rowSpan={h.rowSpan > 1 ? h.rowSpan : undefined} className={h.tengah ? 'tengah' : ''}>
+                  {h.judul}
                 </th>
               ))}
             </tr>
-          )}
+          ))}
         </thead>
         <tbody>
           {b.baris.map((r, i) =>
@@ -119,22 +112,18 @@ export function LembarLaporan({
       {hasil.judul && <h2 className="lap-judul">{hasil.judul}</h2>}
       {(hasil.metaKiri || hasil.metaKanan) && (
         <div className="lap-meta">
-          <dl>
-            {hasil.metaKiri?.map(([a, b]) => (
-              <div key={a}>
-                <dt>{a}</dt>
-                <dd>: {b}</dd>
-              </div>
-            ))}
-          </dl>
-          <dl>
-            {hasil.metaKanan?.map(([a, b]) => (
-              <div key={a}>
-                <dt>{a}</dt>
-                <dd>: {b}</dd>
-              </div>
-            ))}
-          </dl>
+          {[hasil.metaKiri, hasil.metaKanan].map((meta, i) => (
+            // grid 3 kolom (label | : | isi) supaya titik dua sejajar mengikuti label terpanjang
+            <dl key={i}>
+              {meta?.map(([a, b]) => (
+                <div key={a}>
+                  <dt>{a}</dt>
+                  <dd className="titik2" aria-hidden>:</dd>
+                  <dd>{b}</dd>
+                </div>
+              ))}
+            </dl>
+          ))}
         </div>
       )}
       {hasil.bagian.map((b, i) => (

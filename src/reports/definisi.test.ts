@@ -55,3 +55,25 @@ describe('laporan per bulan', () => {
     expect(r[0].bagian[0].baris).toEqual([])
   })
 })
+
+describe('presensi dewasa lansia: penanda T dan LP', () => {
+  const presensi = laporanByKode('presensi-dewasa-lansia')!
+  const kolomOkt: number = 4 + 9 // NO, NAMA, TGL LAHIR, NIK, lalu Jan..Des
+
+  it('hanya centang bila tensi dan lingkar perut normal', async () => {
+    await db.pemeriksaan.where('kegiatanId').equals(okt1).modify({ sistol: 120, diastol: 80, lingkarPerut: 80 })
+    const r = await presensi.bangun(param({}), konteks)
+    expect((r[0].bagian[0].baris[0] as unknown[])[kolomOkt]).toBe('✓')
+  })
+  it('menulis T dan LP bersamaan', async () => {
+    await db.pemeriksaan.where('kegiatanId').equals(okt1).modify({ sistol: 140, diastol: 90, lingkarPerut: 85 })
+    const r = await presensi.bangun(param({}), konteks)
+    expect((r[0].bagian[0].baris[0] as unknown[])[kolomOkt]).toBe('✓ T LP')
+  })
+  it('menulis LP saja bila tensi normal', async () => {
+    await db.pemeriksaan.where('kegiatanId').equals(okt1).modify({ sistol: 120, diastol: 80, lingkarPerut: 85 })
+    const r = await presensi.bangun(param({}), konteks)
+    expect((r[0].bagian[0].baris[0] as unknown[])[kolomOkt]).toBe('✓ LP')
+    expect(r[0].catatan?.[0]).toContain('LP = lingkar perut berisiko')
+  })
+})

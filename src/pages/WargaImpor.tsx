@@ -37,7 +37,7 @@ export default function WargaImpor() {
       <div className="kartu">
         <JudulKartu ikon="unggah">Pilih berkas CSV</JudulKartu>
         <p style={{ marginTop: 0 }}>Simpan berkas Excel sebagai <b>CSV</b>, lalu pilih di sini.</p>
-        <p className="petunjuk">Kolom: nama, nik, no_kk, tanggal_lahir (dd-mm-yyyy), jenis_kelamin (L/P), rt, alamat, nama_ortu. NIK boleh kosong.</p>
+        <p className="petunjuk">Kolom: nama, nik, no_kk, tanggal_lahir (dd-mm-yyyy), jenis_kelamin (L/P), rt, alamat, nama_ortu, nik_ortu (opsional). NIK boleh kosong.</p>
         <div className="baris">
           <button className="btn" onClick={() => unduhTeks('contoh-impor-warga.csv', CONTOH_CSV, 'text/csv')}><Ikon nama="unduh" ukuran={20} /> Unduh contoh CSV</button>
           <label className="btn utama" style={{ cursor: 'pointer' }}>

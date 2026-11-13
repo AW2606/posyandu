@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
-import { todayISO } from './age'
+import { todayISO, umurBulan } from './age'
+import { statusGiziWarga } from './gizi'
 import { db, type Pemeriksaan, type Warga } from './db'
 import {
   hitungIMT,
@@ -50,6 +51,9 @@ export function useWargaPlus(ref: string = todayISO(), termasukArsip = false): W
       .map((w): WargaPlus => {
         const t = terakhir.get(w.id!)
         const imt = hitungIMT(t?.bb, t?.tb)
+        const gizi = t
+          ? statusGiziWarga({ jk: w.jk, umurBln: umurBulan(w.tanggalLahir, t.tanggal), bb: t.bb, tb: t.tb }, (bb, tb) => statusGizi(hitungIMT(bb, tb), p.ambang))
+          : undefined
         return {
           w,
           kode: kodeKategori(w, ref, kategori),
@@ -57,7 +61,7 @@ export function useWargaPlus(ref: string = todayISO(), termasukArsip = false): W
           menyusui: aktif.get('menyusui')!.has(w.id!),
           terakhir: t,
           imt,
-          gizi: statusGizi(imt, p.ambang),
+          gizi,
           tinggi: t ? tekananDarahBerisiko(t.sistol, t.diastol, p.ambang) : false,
           perutRisiko: t ? lingkarPerutBerisiko(t.lingkarPerut, w.jk, p.ambang) : false,
         }

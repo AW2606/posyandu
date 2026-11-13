@@ -25,6 +25,8 @@ export interface Warga {
   dusun: string
   alamat: string
   namaOrtu: string
+  /** NIK orang tua/wali (untuk balita dan anak). Opsional; data lama tidak punya kolom ini. */
+  nikOrtu?: string
   aktif: boolean
   dibuat: number
   diubah: number
@@ -55,6 +57,8 @@ export interface Kunjungan {
   tahap: Tahap
   penyuluhan: string
   rujukan: string
+  /** layanan & skrining per kelompok umur (tambahan; kunjungan lama tidak punya) */
+  layanan?: LayananKunjungan
 }
 
 export interface Pemeriksaan {
@@ -72,7 +76,55 @@ export interface Pemeriksaan {
   gulaDarah?: number
   kolesterol?: number
   asamUrat?: number
+  /** lingkar kepala (cm), terutama balita */
+  lika?: number
+  /** hemoglobin (g/dl), remaja putri dan ibu hamil */
+  hb?: number
   catatan: string
+}
+
+/** Jawaban Ya/Tidak; kosong (undefined) = belum ditanyakan. */
+export type YaTidak = 'Y' | 'T'
+
+/** Kategori AKS: Mandiri, Ringan, Sedang, Berat, Total. */
+export type KodeAKS = 'M' | 'R' | 'S' | 'B' | 'T'
+
+/** Layanan dan skrining per kunjungan, sesuai kolom formulir rekap Puskesmas. Semua opsional. */
+export interface LayananKunjungan {
+  // gejala TBC (semua kelompok)
+  tbcBatuk?: YaTidak
+  tbcDemam?: YaTidak
+  tbcBB?: YaTidak
+  tbcKontak?: YaTidak
+  // balita
+  asiEksklusif?: YaTidak
+  // usia sekolah / remaja
+  heeadsss?: YaTidak // ada masalah (minimal 1 jawaban Ya)
+  // ibu hamil
+  ttdJumlah?: number
+  ttdRutin?: YaTidak
+  pmtKek?: YaTidak
+  pmtRutin?: YaTidak
+  /** komposisi dan jumlah porsi MT bumil KEK dari nakes (teks bebas) */
+  pmtKomposisi?: string
+  kelasIbu?: YaTidak
+  // ibu nifas / menyusui
+  vitANifas?: YaTidak
+  vitAKapsul?: number
+  vitARutin?: YaTidak
+  menyusuiAsi?: YaTidak
+  kbPasca?: YaTidak
+  // dewasa 40 th ke atas
+  pumaSkor?: number
+  // lansia
+  aks?: KodeAKS
+  skilasKognitif?: YaTidak
+  skilasGerak?: YaTidak
+  skilasMalnutrisi?: YaTidak
+  skilasPenglihatan?: YaTidak
+  skilasPendengaran?: YaTidak
+  skilasDepresi?: YaTidak
+  imunCovid?: YaTidak // lansia mendapat imunisasi COVID-19
 }
 
 export type JenisStatus = 'hamil' | 'menyusui'
@@ -108,6 +160,11 @@ export interface Kehamilan {
   tanggalLahir?: string
   tempat?: string
   diFaskes?: boolean
+  // tambahan untuk kartu ibu hamil (opsional)
+  namaSuami?: string
+  noHp?: string
+  /** jarak anak sebelumnya dengan kehamilan ini, teks bebas mis. "3 tahun" */
+  jarakAnak?: string
 }
 
 export interface AuditLog {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { KATEGORI_DEFAULT, kategoriDari, kegiatanPadaBulan, parseTanggalBebas, perkiraanLahir, tanggalAcuanBulan, umurTahun, usiaHamil } from './age'
 import { AMBANG_DEFAULT, hitungIMT, lingkarPerutBerisiko, rekapRisiko, statusGizi, validasiPemeriksaan } from './health'
 import { BATAS_IDLE_MS, sesiKedaluwarsa } from './sesi'
+import { petunjukDigit, siapkanImpor } from './csv'
 
 describe('batas sesi idle (TC-034)', () => {
   const t0 = 1_700_000_000_000
@@ -105,5 +106,23 @@ describe('kehamilan', () => {
   it('HPL = HPHT + 280 hari dan usia kehamilan', () => {
     expect(perkiraanLahir('2026-01-01')).toBe('2026-10-08')
     expect(usiaHamil('2026-01-01', '2026-01-23')).toBe('3 mgg 1 hr')
+  })
+})
+
+describe('NIK / KK 16 digit dan NIK orang tua', () => {
+  it('petunjuk digit', () => {
+    expect(petunjukDigit('1801')).toEqual({ teks: '4/16 digit, kurang 12 lagi', lengkap: false })
+    expect(petunjukDigit('1801000000000001')).toEqual({ teks: '16/16 digit, sudah lengkap', lengkap: true })
+  })
+  it('impor CSV membaca nik_ortu dan menolak yang tidak 16 digit', () => {
+    const kepala = ['nama', 'tanggal_lahir', 'jenis_kelamin', 'rt', 'nik_ortu']
+    const r = siapkanImpor([kepala, ['Bayi A', '01-01-2025', 'L', '22', '1801000000000099'], ['Bayi B', '01-01-2025', 'P', '22', '123']], ['22'], new Set())
+    expect(r[0].data?.nikOrtu).toBe('1801000000000099')
+    expect(r[1].galat).toBe('NIK orang tua harus 16 digit angka.')
+  })
+  it('impor CSV tanpa kolom nik_ortu tetap jalan seperti sebelumnya', () => {
+    const r = siapkanImpor([['nama', 'tanggal_lahir', 'jenis_kelamin', 'rt'], ['Warga', '01-01-1990', 'P', '22']], ['22'], new Set())
+    expect(r[0].galat).toBeUndefined()
+    expect(r[0].data && 'nikOrtu' in r[0].data).toBe(false)
   })
 })

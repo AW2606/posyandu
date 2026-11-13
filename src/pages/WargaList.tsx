@@ -15,7 +15,7 @@ const PENANDA: Array<{ k: Penanda; label: string; cocok: (x: WargaPlus) => boole
   { k: 'hamil', label: 'Ibu hamil', cocok: (x) => x.hamil },
   { k: 'menyusui', label: 'Ibu menyusui', cocok: (x) => x.menyusui },
   { k: 'T', label: 'Tensi tinggi (T)', cocok: (x) => x.tinggi },
-  { k: 'perut', label: 'Lingkar perut berisiko', cocok: (x) => x.perutRisiko },
+  { k: 'perut', label: 'Lingkar perut berisiko (LP)', cocok: (x) => x.perutRisiko },
   { k: 'kurus', label: 'Gizi kurus', cocok: (x) => x.gizi === 'Kurus' },
   { k: 'gemuk', label: 'Gizi gemuk', cocok: (x) => x.gizi === 'Gemuk' },
 ]
@@ -53,9 +53,9 @@ export default function WargaList() {
   }, [semua, q, kat, rt, penanda])
 
   function ekspor() {
-    const baris = [['nama', 'nik', 'tanggal_lahir', 'umur', 'jenis_kelamin', 'rt', 'kategori']]
+    const baris = [['nama', 'nik', 'tanggal_lahir', 'umur', 'jenis_kelamin', 'rt', 'kategori', 'no_kk', 'nama_ortu', 'nik_ortu']]
     for (const x of hasil)
-      baris.push([x.w.nama, x.w.nik, tglId(x.w.tanggalLahir), formatUmur(x.w.tanggalLahir, ref), x.w.jk, x.w.rt, kategori.find((k) => k.kode === x.kode)?.nama ?? ''])
+      baris.push([x.w.nama, x.w.nik, tglId(x.w.tanggalLahir), formatUmur(x.w.tanggalLahir, ref), x.w.jk, x.w.rt, kategori.find((k) => k.kode === x.kode)?.nama ?? '', x.w.noKK, x.w.namaOrtu, x.w.nikOrtu ?? ''])
     unduhTeks('warga.csv', baris.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n'), 'text/csv')
   }
 
