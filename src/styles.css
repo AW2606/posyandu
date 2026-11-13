@@ -402,6 +402,42 @@ textarea.input { min-height: 96px; resize: vertical; }
 .avatar.ungu { background: var(--ungu-muda); color: var(--ungu); }
 .avatar.koral, .avatar.merah { background: var(--koral-muda); color: var(--koral-tua); }
 .avatar.krem, .avatar.abu { background: var(--krem-2); color: var(--redup); }
+/* avatar dengan foto profil */
+.berfoto { overflow: hidden; padding: 0; }
+.berfoto > img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+a.baris-p { color: inherit; text-decoration: none; border-radius: 16px; }
+a.baris-p:hover b { text-decoration: underline; }
+.topbar a:has(> .avatar-pengguna) { display: flex; border-radius: 50%; }
+/* halaman profil */
+.foto-profil { position: relative; flex: none; }
+.tombol-kamera {
+  position: absolute; right: 0; bottom: 2px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff;
+  background: var(--hijau); color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: var(--bayang-kecil);
+}
+.tombol-kamera:hover { background: var(--hijau-daun); }
+.tombol-kamera:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 600px) { .tombol-kamera { width: 32px; height: 32px; right: -6px; bottom: -2px; } }
+/* pratinjau dan atur posisi foto profil */
+.atur-foto { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 8px; }
+.atur-bingkai {
+  position: relative; overflow: hidden; border-radius: 24px; background: #1d2a26; cursor: grab;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.atur-bingkai:active { cursor: grabbing; }
+.atur-bingkai > img { position: absolute; max-width: none; pointer-events: none; }
+/* lingkaran = bagian yang menjadi foto profil; luar lingkaran digelapkan */
+.atur-lingkaran { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle closest-side, transparent calc(100% - 1px), #0f1a17d9 100%); }
+.atur-lingkaran::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid #fffd; }
+.atur-muat { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-weight: 700; }
+.atur-zoom { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 320px; }
+.atur-zoom input[type='range'] { flex: 1; accent-color: var(--hijau); height: 28px; }
+.atur-zoom .tanda { font-size: 24px; font-weight: 800; line-height: 1; }
+.atur-zoom .btn-ikon:disabled { opacity: .4; cursor: default; }
+.kartu-profil-tautan { display: flex; align-items: center; gap: 14px; color: inherit; text-decoration: none; }
+.kartu-profil-tautan .avatar { width: 58px; height: 58px; }
+.kartu-profil-tautan > div { min-width: 0; flex: 1; }
+.kartu-profil-tautan b { display: block; font-size: 18px; font-weight: 800; }
+.kartu-profil-tautan small { display: block; color: var(--redup); font-size: 14px; }
 @media (max-width: 600px) { .avatar { width: 46px; height: 46px; font-size: 16px; } }
 
 /* petak nomor antrean dan tanggal */

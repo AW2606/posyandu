@@ -19,6 +19,8 @@ export interface Sesi {
   nama: string
   username: string
   role: Role
+  /** foto profil (data URL), bila ada */
+  foto?: string | null
   /** id akun lokal */
   id?: number
   /** id akun Supabase */
@@ -84,6 +86,8 @@ interface AuthCtx {
   isAdmin: boolean
   /** khusus super admin (pemilik sistem) */
   isSuper: boolean
+  /** perbarui data sesi setelah profil sendiri diubah (nama, nama pengguna, foto) */
+  perbaruiSesi: (patch: Partial<Pick<Sesi, 'nama' | 'username' | 'foto'>>) => void
 }
 
 const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx)
@@ -117,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             const prof = uid ? await ambilProfil(uid) : null
             if (uid && prof?.aktif) {
-              setUser({ nama: prof.nama, username: prof.username, role: prof.role, uid })
+              setUser({ nama: prof.nama, username: prof.username, role: prof.role, foto: prof.foto, uid })
               setAuditUser(prof.username)
             }
           }
@@ -130,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else if (id) {
             const u = await db.users.get(id)
             if (u?.aktif) {
-              setUser({ nama: u.nama, username: u.username, role: u.role, id: u.id })
+              setUser({ nama: u.nama, username: u.username, role: u.role, foto: u.foto, id: u.id })
               setAuditUser(u.username)
             }
           }
@@ -205,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         catatAktivitas()
         setAuditUser(prof.username)
-        setUser({ nama: prof.nama, username: prof.username, role: prof.role, uid: data.user.id })
+        setUser({ nama: prof.nama, username: prof.username, role: prof.role, foto: prof.foto, uid: data.user.id })
         return null
       }
       const u = await db.users.where('username').equals(username.trim().toLowerCase()).first()
@@ -214,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(KUNCI, String(u.id))
       catatAktivitas()
       setAuditUser(u.username)
-      setUser({ nama: u.nama, username: u.username, role: u.role, id: u.id })
+      setUser({ nama: u.nama, username: u.username, role: u.role, foto: u.foto, id: u.id })
       return null
     },
     [cloud],
@@ -225,9 +229,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [akhiriSesi])
 
+  const perbaruiSesi = useCallback((patch: Partial<Pick<Sesi, 'nama' | 'username' | 'foto'>>) => {
+    setUser((u) => (u ? { ...u, ...patch } : u))
+  }, [])
+
   const value = useMemo(
-    () => ({ user, siap, cloud, login, logout, isAdmin: pengurus(user?.role), isSuper: superAdmin(user?.role) }),
-    [user, siap, cloud, login, logout],
+    () => ({ user, siap, cloud, login, logout, perbaruiSesi, isAdmin: pengurus(user?.role), isSuper: superAdmin(user?.role) }),
+    [user, siap, cloud, login, logout, perbaruiSesi],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

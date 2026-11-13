@@ -18,6 +18,11 @@ create table if not exists public.profiles (
 -- proyek lama: perbarui batasan peran supaya menerima 'superadmin'
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check check (role in ('superadmin', 'admin', 'kader'));
+-- foto profil: gambar JPEG kecil (data URL) yang sudah diperkecil di perangkat
+alter table public.profiles add column if not exists foto text;
+alter table public.profiles drop constraint if exists profiles_foto_check;
+alter table public.profiles add constraint profiles_foto_check
+  check (foto is null or (foto like 'data:image/%' and length(foto) < 300000));
 
 -- Setiap akun baru otomatis punya profil. Akun PERTAMA menjadi super admin dan aktif.
 -- Akun berikutnya menjadi kader dan NONAKTIF sampai admin mengaktifkannya, sehingga orang luar
@@ -69,11 +74,29 @@ drop policy if exists profiles_ubah on public.profiles;
 create policy profiles_ubah on public.profiles for update to authenticated
   using (public.is_super() or (public.is_admin() and role = 'kader'))
   with check (public.is_super() or (public.is_admin() and role = 'kader'));
+-- Setiap akun aktif boleh mengubah profilnya sendiri (nama dan foto). Peran, status aktif, dan
+-- nama pengguna dijaga pemicu di bawah, jadi tidak bisa dinaikkan sendiri lewat jalur ini.
+drop policy if exists profiles_sendiri on public.profiles;
+create policy profiles_sendiri on public.profiles for update to authenticated
+  using (id = auth.uid() and public.is_active()) with check (id = auth.uid());
 
--- Sistem tidak boleh kehilangan super admin terakhir (diturunkan, dinonaktifkan, atau dihapus).
+-- Penjaga perubahan profil:
+--   * super admin terakhir tidak boleh hilang (diturunkan, dinonaktifkan, atau dihapus);
+--   * selain super admin, tidak ada yang bisa mengubah peran atau status aktifnya sendiri;
+--   * nama pengguna hanya berubah lewat fungsi ganti_username (email login ikut diganti di sana).
 create or replace function public.profiles_guard() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
+  if tg_op = 'UPDATE' then
+    if old.id = auth.uid() and not public.is_super()
+       and (new.role is distinct from old.role or new.aktif is distinct from old.aktif) then
+      raise exception 'Tidak bisa mengubah peran atau status akun sendiri' using errcode = 'P0001';
+    end if;
+    if new.username is distinct from old.username
+       and coalesce(current_setting('posyandu.ganti_username', true), '') <> '1' then
+      raise exception 'Nama pengguna hanya bisa diganti lewat menu Profil' using errcode = 'P0001';
+    end if;
+  end if;
   if old.role = 'superadmin'
      and (tg_op = 'DELETE' or new.role <> 'superadmin' or not new.aktif)
      and not exists (select 1 from public.profiles where id <> old.id and role = 'superadmin' and aktif) then
@@ -115,6 +138,35 @@ begin
 end $$;
 revoke all on function public.hapus_akun(uuid) from public, anon;
 grant execute on function public.hapus_akun(uuid) to authenticated;
+
+-- Ganti nama pengguna akun sendiri (menu Profil). Aplikasi masuk dengan email "<nama>@posyandu.local",
+-- jadi email login di auth.users ikut diganti. Akun yang masuk memakai email sungguhan tidak
+-- diubah emailnya; hanya nama pengguna yang tampil.
+create or replace function public.ganti_username(baru text) returns void
+language plpgsql security definer set search_path = public, auth as $$
+declare
+  u text := lower(trim(baru));
+  surel text := lower(trim(baru)) || '@posyandu.local';
+begin
+  if auth.uid() is null or not public.is_active() then
+    raise exception 'Akun tidak aktif' using errcode = 'P0001';
+  end if;
+  if u !~ '^[a-z0-9._-]{3,30}$' then
+    raise exception 'Nama pengguna 3-30 karakter: huruf kecil, angka, titik, garis bawah, atau strip.' using errcode = 'P0001';
+  end if;
+  if exists (select 1 from public.profiles where username = u and id <> auth.uid())
+     or exists (select 1 from auth.users where lower(email) = surel and id <> auth.uid()) then
+    raise exception 'Nama pengguna sudah dipakai.' using errcode = 'P0001';
+  end if;
+  update auth.users set email = surel, updated_at = now()
+    where id = auth.uid() and email like '%@posyandu.local';
+  update auth.identities set identity_data = jsonb_set(identity_data, '{email}', to_jsonb(surel)), updated_at = now()
+    where user_id = auth.uid() and provider = 'email' and identity_data ->> 'email' like '%@posyandu.local';
+  perform set_config('posyandu.ganti_username', '1', true); -- izin sekali pakai untuk penjaga profil
+  update public.profiles set username = u where id = auth.uid();
+end $$;
+revoke all on function public.ganti_username(text) from public, anon;
+grant execute on function public.ganti_username(text) to authenticated;
 
 -- ============ Data aplikasi (satu tabel umum, kunci: tabel + id) ============
 create sequence if not exists public.records_seq;

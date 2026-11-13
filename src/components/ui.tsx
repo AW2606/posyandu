@@ -44,6 +44,7 @@ const PATH: Record<string, string> = {
   suntik: 'M18 2l4 4M17 7l3-3M19 9 8.7 19.3a1 1 0 0 1-1.4 0l-2.6-2.6a1 1 0 0 1 0-1.4L15 5M9 11l4 4M5 19l-3 3M14 4l6 6',
   tutup: 'M18 6 6 18M6 6l12 12',
   rumah: 'M3 10.5 12 3l9 7.5M5 9v11h14V9',
+  kamera: 'M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
   logo: 'M12 21V10m0 0c0-4 3-6 7-6 0 4-3 6-7 6zm0 3c0-3.5-2.5-5-6-5 0 3.5 2.5 5 6 5z',
 }
 
@@ -292,6 +293,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 export function inisial(nama: string): string {
   const p = nama.replace(/^(hj|h|dr|bu|pak)\.?\s+/i, '').trim().split(/\s+/)
   return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase()
+}
+
+/** Avatar akun: foto profil bila ada, selain itu inisial nama. `className` memakai gaya avatar yang sudah ada. */
+export function AvatarAkun({ nama, foto, className }: { nama: string; foto?: string | null; className: string }) {
+  return (
+    <span className={`${className} ${foto ? 'berfoto' : ''}`} aria-hidden>
+      {foto ? <img src={foto} alt="" /> : inisial(nama)}
+    </span>
+  )
 }
 
 /** Angka yang menghitung naik dari 0 (halus, via requestAnimationFrame). */

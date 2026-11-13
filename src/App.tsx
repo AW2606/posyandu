@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { Bangau, Ikon, Merek, inisial } from './components/ui'
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { AvatarAkun, Bangau, Ikon, Merek } from './components/ui'
 import { pastikanAdminAwal, useAuth } from './lib/auth'
 import { adaCloud, useStatusSinkron } from './lib/cloud'
 import { inisialisasi } from './lib/db'
@@ -13,6 +13,7 @@ import Laporan from './pages/Laporan'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Pengaturan from './pages/Pengaturan'
+import Profil from './pages/Profil'
 import TindakLanjut from './pages/TindakLanjut'
 import WargaArsip from './pages/WargaArsip'
 import WargaDetail from './pages/WargaDetail'
@@ -61,7 +62,9 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar no-print">
-        <span className="avatar-pengguna" aria-hidden>{inisial(user.nama)}</span>
+        <Link to="/profil" aria-label="Profil saya" title="Profil saya">
+          <AvatarAkun nama={user.nama} foto={user.foto} className="avatar-pengguna" />
+        </Link>
         <div className="sapa">
           <small>{salam()},</small>
           <b>{user.nama}</b>
@@ -95,13 +98,13 @@ export default function App() {
             </div>
           </div>
           <div className="kotak-pengguna">
-            <div className="baris-p">
-              <span className="avatar-pengguna">{inisial(user.nama)}</span>
+            <Link to="/profil" className="baris-p" title="Profil saya">
+              <AvatarAkun nama={user.nama} foto={user.foto} className="avatar-pengguna" />
               <div>
                 <b>{user.nama}</b>
                 <small>{peran} · @{user.username}</small>
               </div>
-            </div>
+            </Link>
             <button className="btn kecil penuh" onClick={logout}>
               <Ikon nama="keluar" ukuran={18} /> Keluar
             </button>
@@ -126,6 +129,7 @@ export default function App() {
             <Route path="/tindak-lanjut" element={<TindakLanjut />} />
             <Route path="/laporan" element={<Laporan />} />
             <Route path="/pengaturan" element={<Pengaturan />} />
+            <Route path="/profil" element={<Profil />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

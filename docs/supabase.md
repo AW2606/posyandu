@@ -69,6 +69,13 @@ Angka di bawah dari pengetahuan umum dan **bisa berubah**; periksa supabase.com/
 - Akun pertama di proyek baru otomatis menjadi super admin.
 - Super admin terakhir tidak bisa dihapus, diturunkan, atau dinonaktifkan oleh siapa pun, termasuk lewat dashboard Supabase.
 - Admin bisa melihat daftar semua akun, tetapi tidak bisa mengubah atau menghapus akun admin lain maupun super admin, dan tidak bisa menaikkan siapa pun menjadi admin.
+- Menambah super admin: buat akunnya di aplikasi, lalu di Supabase buka **Table Editor > profiles** dan ganti kolom `role` akun itu menjadi `superadmin` (atau jalankan `update public.profiles set role = 'superadmin', aktif = true where username = '...';`). Orang itu lalu keluar dan masuk lagi.
+
+## Profil akun
+- Setiap pengguna bisa mengubah foto, nama, nama pengguna, dan kata sandinya sendiri di menu **Profil saya** (ketuk foto/inisial di pojok kiri atas).
+- Foto diperkecil di HP (persegi 256 px, sekitar 20-40 KB) lalu disimpan di kolom `profiles.foto`. Tidak perlu mengatur Storage.
+- Ganti nama pengguna memakai fungsi `ganti_username`, karena email login (`nama@posyandu.local`) ikut diganti. Karena itu kolom `username` tidak bisa diubah langsung lewat Table Editor; minta pemilik akun menggantinya dari menu Profil.
+- Ganti kata sandi meminta kata sandi lama lebih dulu.
 
 ## Memperbarui skema
 Jika aplikasi diperbarui dan `docs/supabase.sql` ikut berubah (misalnya fitur hapus akun memakai fungsi `hapus_akun`), jalankan ulang seluruh isi berkas itu di **SQL Editor**. Skrip aman dijalankan berkali-kali dan tidak menghapus data.

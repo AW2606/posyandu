@@ -112,6 +112,7 @@ export interface Profil {
   nama: string
   role: Role
   aktif: boolean
+  foto?: string | null
 }
 
 const KUNCI_PROFIL = 'posyandu.profil'
@@ -184,7 +185,7 @@ export async function hapusAkun(id: string): Promise<string | null> {
 
 /** Pesan penolakan dari server (aturan peran) sudah berbahasa Indonesia; galat lain diberi awalan. */
 export function pesanServer(m: string): string {
-  return /^(Hanya|Tidak bisa|Super admin)/.test(m) ? m : `Ditolak server: ${m}`
+  return /^(Hanya|Tidak bisa|Super admin|Nama pengguna|Akun)/.test(m) ? m : `Ditolak server: ${m}`
 }
 
 /** Tautan sekali ketuk untuk menghubungkan HP kader. Hanya berisi alamat dan kunci publik. */

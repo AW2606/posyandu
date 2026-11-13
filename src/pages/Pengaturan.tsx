@@ -1,9 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Chip, Field, Ikon, JudulKartu, KepalaHalaman, Konfirmasi, Logo, Sheet, inisial, useToast } from '../components/ui'
+import { AvatarAkun, Chip, Field, Ikon, JudulKartu, KepalaHalaman, Konfirmasi, Logo, Sheet, useToast } from '../components/ui'
 import { FormServer } from '../components/FormServer'
-import { buatUser, gantiPassword, gantiPasswordCloud, useAuth } from '../lib/auth'
+import { buatUser, gantiPassword, useAuth } from '../lib/auth'
 import { buatAkunKader, buatTautan, getKlien, getSinkron, hapusAkun, pesanServer, useStatusSinkron, type Profil } from '../lib/cloud'
 import { BATAS_AUDIT, catat, db, eksporSemua, getPengaturan, impor, inisialisasi, simpanPengaturan, type AuditLog, type Pengaturan as TPengaturan, type Role } from '../lib/db'
 import { bolehKelolaAkun, bolehLepasSuperAdmin, NAMA_PERAN, peranBolehDiberi } from '../lib/peran'
@@ -25,7 +25,15 @@ export default function Pengaturan() {
     <>
       <KepalaHalaman label="Pengaturan" judul="Lainnya" sub={sub} />
       <div className="kolom-masonry">
-        <KataSandi id={user!.id} />
+        <Link to="/profil" className="kartu kartu-profil-tautan">
+          <AvatarAkun nama={user!.nama} foto={user!.foto} className={`avatar ${user!.role === 'superadmin' ? 'ungu' : user!.role === 'admin' ? 'biru' : ''}`} />
+          <div>
+            <b>{user!.nama}</b>
+            <small>{NAMA_PERAN[user!.role]} · @{user!.username}</small>
+            <small>Ubah foto, nama, nama pengguna, dan kata sandi</small>
+          </div>
+          <span className="btn-ikon"><Ikon nama="panah" ukuran={18} /></span>
+        </Link>
         {isAdmin ? (
           <>
             {cloud ? <ProfilCloud /> : <Akun />}
@@ -50,34 +58,6 @@ export default function Pengaturan() {
       </div>
       <p className="kaki-versi"><Logo ukuran={26} /> Posyandu Bangau · Portal Kader v0.1</p>
     </>
-  )
-}
-
-function KataSandi({ id }: { id?: number }) {
-  const toast = useToast()
-  const { cloud } = useAuth()
-  const [a, setA] = useState('')
-  const [b, setB] = useState('')
-  const galat = a && a.length < 6 ? 'Minimal 6 karakter.' : b && a !== b ? 'Kata sandi tidak sama.' : null
-  return (
-    <div className="kartu">
-      <JudulKartu ikon="kunci" warna="kuning">Ganti kata sandi</JudulKartu>
-      <Field label="Kata sandi baru" galat={galat}>
-        <input className="input" type="password" autoComplete="new-password" value={a} onChange={(e) => setA(e.target.value)} />
-      </Field>
-      <Field label="Ulangi kata sandi baru">
-        <input className="input" type="password" autoComplete="new-password" value={b} onChange={(e) => setB(e.target.value)} />
-      </Field>
-      <button className="btn utama" disabled={a.length < 6 || a !== b} onClick={async () => {
-        if (cloud) {
-          const g = await gantiPasswordCloud(a)
-          if (g) return toast(g)
-        } else await gantiPassword(id!, a)
-        setA(''); setB(''); toast('Kata sandi diganti')
-      }}>
-        Simpan kata sandi
-      </button>
-    </div>
   )
 }
 
@@ -255,7 +235,7 @@ function Akun() {
           const sendiri = u.id === user?.id
           const boleh = !sendiri && bolehKelolaAkun(user?.role, u.role)
           return (
-            <BarisAkun key={u.id} nama={u.nama} username={u.username} role={u.role} aktif={u.aktif} sendiri={sendiri}>
+            <BarisAkun key={u.id} nama={u.nama} username={u.username} role={u.role} aktif={u.aktif} sendiri={sendiri} foto={u.foto}>
               {(sendiri || boleh) && <button className="btn kecil" onClick={() => { setReset(u.id!); setSandi('') }}><Ikon nama="kunci" ukuran={16} /> Reset sandi</button>}
               {boleh && (
                 <>
@@ -504,11 +484,11 @@ function Server() {
 }
 
 /** Satu akun: identitas di atas, tombol aksi di bawah supaya tetap rapi di layar HP. */
-function BarisAkun({ nama, username, role, aktif, sendiri, children }: { nama: string; username: string; role: string; aktif: boolean; sendiri: boolean; children?: React.ReactNode }) {
+function BarisAkun({ nama, username, role, aktif, sendiri, foto, children }: { nama: string; username: string; role: string; aktif: boolean; sendiri: boolean; foto?: string | null; children?: React.ReactNode }) {
   return (
     <div className={`akun ${aktif ? '' : 'nonaktif'}`}>
       <div className="akun-atas">
-        <div className={`avatar ${aktif ? (role === 'superadmin' ? 'ungu' : role === 'admin' ? 'biru' : '') : 'krem'}`}>{inisial(nama)}</div>
+        <AvatarAkun nama={nama} foto={foto} className={`avatar ${aktif ? (role === 'superadmin' ? 'ungu' : role === 'admin' ? 'biru' : '') : 'krem'}`} />
         <div className="akun-isi">
           <b>{nama}</b>
           <div className="akun-sub">
@@ -576,7 +556,7 @@ function ProfilCloud() {
           // hanya super admin yang bisa menaikkan/menurunkan antara kader dan admin
           const bolehGantiPeran = boleh && pilihanPeran.includes('admin') && p.role !== 'superadmin'
           return (
-            <BarisAkun key={p.id} nama={p.nama || p.username} username={p.username} role={p.role} aktif={p.aktif} sendiri={sendiri}>
+            <BarisAkun key={p.id} nama={p.nama || p.username} username={p.username} role={p.role} aktif={p.aktif} sendiri={sendiri} foto={p.foto}>
               {boleh && (
                 <>
                   {bolehGantiPeran && (

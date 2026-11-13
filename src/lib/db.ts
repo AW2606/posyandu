@@ -12,6 +12,8 @@ export interface User {
   hash: string
   role: Role
   aktif: boolean
+  /** foto profil (data URL JPEG kecil), opsional */
+  foto?: string
 }
 
 export interface Warga {
