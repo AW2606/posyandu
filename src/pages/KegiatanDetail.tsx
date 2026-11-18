@@ -7,7 +7,7 @@ import { formatUmur, tglPanjang, todayISO } from '../lib/age'
 import { useAuth } from '../lib/auth'
 import { catat, db, NAMA_TAHAP, URUTAN_TAHAP, type Kunjungan } from '../lib/db'
 import { KODE_TAHAP_WARNA, useKategoriMap, usePengaturan } from '../lib/hooks'
-import { daftarkan } from '../lib/layanan'
+import { daftarkan, hapusPeserta } from '../lib/layanan'
 import { useWargaPlus, type WargaPlus } from '../lib/wargaData'
 
 type Tab = 'peserta' | 'belum' | 'obat'
@@ -30,6 +30,7 @@ export default function KegiatanDetail() {
   const [buka, setBuka] = useState<number | null>(null)
   const [hapus, setHapus] = useState(false)
   const [obatBaru, setObatBaru] = useState(false)
+  const [batalPeserta, setBatalPeserta] = useState<Kunjungan | null>(null)
 
   const wargaMap = useMemo(() => new Map(semua.map((x) => [x.w.id!, x])), [semua])
   const periksaMap = useMemo(() => new Map(periksa.map((x) => [x.kunjunganId, x])), [periksa])
@@ -85,8 +86,17 @@ export default function KegiatanDetail() {
     if (!x) return null
     const pm = periksaMap.get(k.id!)
     const warnaNo = k.tahap === 'dilayani' ? 'hijau' : k.tahap === 'terdaftar' ? 'kuning' : ''
+    // peserta yang sudah punya hasil pemeriksaan hanya boleh dihapus admin
+    const bolehHapus = isAdmin || (k.tahap === 'terdaftar' && !pm)
     return (
-      <button key={k.id} className="item" onClick={() => setBuka(k.id!)}>
+      <div
+        key={k.id}
+        className="item"
+        role="button"
+        tabIndex={0}
+        onClick={() => setBuka(k.id!)}
+        onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setBuka(k.id!) } }}
+      >
         <div className={`petak-no ${warnaNo}`}><small>NO</small><b>{k.noAntrean}</b></div>
         <div className="isi">
           <div className="nama">{x.w.nama}</div>
@@ -102,11 +112,22 @@ export default function KegiatanDetail() {
         </div>
         <span className="ujung">
           <Chip warna={KODE_TAHAP_WARNA[k.tahap] as 'abu'} titik>{NAMA_TAHAP[k.tahap]}</Chip>
+          {bolehHapus && (
+            <button
+              type="button"
+              className="btn-ikon bahaya"
+              aria-label={`Hapus ${x.w.nama} dari peserta`}
+              title="Hapus dari peserta"
+              onClick={(e) => { e.stopPropagation(); setBatalPeserta(k) }}
+            >
+              <Ikon nama="sampah" ukuran={17} />
+            </button>
+          )}
           {k.tahap === 'terdaftar'
             ? <span className="btn-ikon gelap" aria-hidden><Ikon nama="pensil" ukuran={17} /></span>
             : <span className="btn-ikon" aria-hidden><Ikon nama="panah" ukuran={18} /></span>}
         </span>
-      </button>
+      </div>
     )
   }
 
@@ -271,6 +292,28 @@ export default function KegiatanDetail() {
           onTutup={() => setObatBaru(false)}
         />
       )}
+
+      {batalPeserta && (() => {
+        const nama = wargaMap.get(batalPeserta.wargaId)?.w.nama ?? 'Warga ini'
+        const adaData = periksaMap.has(batalPeserta.id!) || batalPeserta.tahap !== 'terdaftar'
+        return (
+          <Konfirmasi
+            judul="Hapus dari peserta?"
+            teks={adaData
+              ? `${nama} (antrean ${batalPeserta.noAntrean}) akan dihapus dari kegiatan ini beserta hasil pemeriksaan dan obat/vitamin yang sudah dicatat hari ini. Data warganya tetap ada.`
+              : `${nama} (antrean ${batalPeserta.noAntrean}) akan dihapus dari daftar peserta kegiatan ini. Data warganya tetap ada dan bisa didaftarkan lagi.`}
+            labelYa="Hapus"
+            bahaya
+            onYa={async () => {
+              if (buka === batalPeserta.id) setBuka(null)
+              await hapusPeserta(batalPeserta.id!, nama)
+              setBatalPeserta(null)
+              toast(`${nama} dihapus dari peserta`)
+            }}
+            onBatal={() => setBatalPeserta(null)}
+          />
+        )
+      })()}
 
       {hapus && (
         <Konfirmasi

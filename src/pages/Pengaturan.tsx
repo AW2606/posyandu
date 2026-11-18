@@ -61,14 +61,21 @@ export default function Pengaturan() {
   )
 }
 
+/**
+ * Draf form pengaturan. Draf baru diisi setelah data tersimpan selesai dibaca dari IndexedDB.
+ * Dulu draf langsung dikunci ke nilai bawaan pada render pertama (useLiveQuery masih undefined),
+ * sehingga form selalu menampilkan angka bawaan dan nilai yang sudah disimpan seolah hilang.
+ */
 function useDraft() {
+  // undefined = masih memuat, null = belum pernah disimpan
+  const row = useLiveQuery(async () => (await db.kv.get('pengaturan')) ?? null)
   const p = usePengaturan()
   const [d, setD] = useState<TPengaturan>(p)
   const [muat, setMuat] = useState(false)
   useEffect(() => {
-    if (!muat) { setD(p); setMuat(true) }
-  }, [p, muat])
-  return [d, setD] as const
+    if (!muat && row !== undefined) { setD(p); setMuat(true) }
+  }, [p, row, muat])
+  return [d, setD, muat] as const
 }
 
 function Identitas() {
@@ -119,9 +126,11 @@ function Identitas() {
 function Kategori() {
   const toast = useToast()
   const asli = useKategori()
+  const terbaca = useLiveQuery(() => db.kategori.count())
   const [d, setD] = useState(asli)
   const [muat, setMuat] = useState(false)
-  useEffect(() => { if (!muat) { setD(asli); setMuat(true) } }, [asli, muat])
+  // tunggu tabel kategori selesai dibaca supaya draf tidak terkunci ke nilai bawaan
+  useEffect(() => { if (!muat && terbaca !== undefined) { setD(asli); setMuat(true) } }, [asli, terbaca, muat])
   const ubah = (i: number, k: 'umurMin' | 'umurMax', v: string) =>
     setD((x) => x.map((c, j) => (j === i ? { ...c, [k]: v === '' ? (k === 'umurMax' ? null : 0) : Number(v) } : c)))
   const urut = [...d].sort((a, b) => a.urutan - b.urutan)
@@ -156,7 +165,14 @@ function Kategori() {
 
 function Ambang() {
   const toast = useToast()
-  const [d, setD] = useDraft()
+  const [d, , muat] = useDraft()
+  // simpan isian sebagai teks supaya angka desimal ("18," / "18.5") bisa diketik apa adanya
+  const [teks, setTeks] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (muat) setTeks(Object.fromEntries(Object.entries(d.ambang).map(([k, v]) => [k, String(v)])))
+  }, [muat, d.ambang])
+  const keAngka = (s: string | undefined) => Number((s ?? '').trim().replace(',', '.'))
+  const tidakValid = Object.entries(teks).filter(([, v]) => v.trim() === '' || !Number.isFinite(keAngka(v)))
   const lab: Array<[keyof typeof AMBANG_DEFAULT, string]> = [
     ['imtKurus', 'IMT: di bawah ini berisiko kurang'],
     ['imtGemuk', 'IMT: ini atau lebih berisiko lebih'],
@@ -186,18 +202,23 @@ function Ambang() {
       <p className="petunjuk">Angka bawaan perlu dikonfirmasi ke bidan Puskesmas. Sistem hanya memberi penanda, bukan diagnosis. Status gizi balita dan anak di bawah 18 tahun dihitung dengan standar WHO (Permenkes 2/2020), bukan dengan IMT dewasa.</p>
       {lab.map(([k, l]) => (
         <Field key={k} label={l}>
-          <input className="input" inputMode="decimal" value={d.ambang[k]} onChange={(e) => setD((x) => ({ ...x, ambang: { ...x.ambang, [k]: Number(e.target.value.replace(',', '.')) || 0 } }))} />
+          <input className="input" inputMode="decimal" value={teks[k] ?? ''} disabled={!muat} onChange={(e) => { const v = e.target.value; setTeks((x) => ({ ...x, [k]: v })) }} />
         </Field>
       ))}
+      {tidakValid.length > 0 && <div className="banner peringatan">Ada isian ambang yang kosong atau bukan angka.</div>}
       <div className="baris">
-        <button className="btn utama" onClick={async () => {
+        <button className="btn utama" disabled={!muat || tidakValid.length > 0} onClick={async () => {
+          const ambang = { ...d.ambang }
+          for (const k of Object.keys(ambang) as Array<keyof typeof AMBANG_DEFAULT>) {
+            if (teks[k] !== undefined) ambang[k] = keAngka(teks[k])
+          }
           // simpan ambang saja di atas pengaturan terbaru
           const kini = await getPengaturan()
-          await simpanPengaturan({ ...kini, ambang: d.ambang })
+          await simpanPengaturan({ ...kini, ambang })
           await catat('ubah', 'ambang batas', 'Ambang batas pemeriksaan diubah')
           toast('Ambang disimpan')
         }}>Simpan</button>
-        <button className="btn" onClick={() => setD((x) => ({ ...x, ambang: AMBANG_DEFAULT }))}>Kembalikan bawaan</button>
+        <button className="btn" onClick={() => setTeks(Object.fromEntries(Object.entries(AMBANG_DEFAULT).map(([k, v]) => [k, String(v)])))}>Kembalikan bawaan</button>
       </div>
     </div>
   )

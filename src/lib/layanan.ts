@@ -12,6 +12,21 @@ export async function daftarkan(kegiatanId: number, wargaId: number): Promise<{ 
   })
 }
 
+/**
+ * Batalkan pendaftaran peserta dari kegiatan (misalnya salah tekan). Hasil pemeriksaan dan
+ * pemberian obat/vitamin warga itu pada kegiatan ini ikut terhapus. Nomor antrean peserta lain tidak diubah.
+ */
+export async function hapusPeserta(kunjunganId: number, namaWarga = ''): Promise<void> {
+  const kj = await db.kunjungan.get(kunjunganId)
+  if (!kj) return
+  await db.transaction('rw', db.kunjungan, db.pemeriksaan, db.layananObat, async () => {
+    await db.pemeriksaan.where('kunjunganId').equals(kunjunganId).delete()
+    await db.layananObat.where('kegiatanId').equals(kj.kegiatanId).filter((o) => o.wargaId === kj.wargaId).delete()
+    await db.kunjungan.delete(kunjunganId)
+  })
+  await catat('hapus', 'peserta', `${namaWarga || `warga ${kj.wargaId}`} dari kegiatan ${kj.kegiatanId} (antrean ${kj.noAntrean})`)
+}
+
 export function tahapLanjut(sekarang: Tahap, minimal: Tahap): Tahap {
   return URUTAN_TAHAP.indexOf(sekarang) >= URUTAN_TAHAP.indexOf(minimal) ? sekarang : minimal
 }
